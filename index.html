@@ -145,11 +145,35 @@ tr:hover td{background:#0f2409;}
 .chat-item{background:#0f2409;border:1px solid #1a3a0f;border-radius:10px;padding:12px;cursor:pointer;}
 .chat-item:hover{border-color:#1e5c0f;}
 .chat-item.flagged{border-color:var(--rd);}
+.chat-item.locked{border-color:#555;opacity:0.7;}
 .ci-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
 .ci-parties{font-size:13px;font-weight:600;color:var(--w);}
 .ci-time{font-size:11px;color:rgba(255,255,255,0.3);}
 .ci-preview{font-size:12px;color:rgba(255,255,255,0.4);}
 .ci-flag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--rll);color:var(--rd);}
+/* Admin message thread */
+.admin-msg-wrap{max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:14px;padding:4px 0;}
+.admin-msg{border-radius:8px;padding:10px 13px;}
+.admin-msg.normal{background:#162a0f;border:1px solid #1a3a0f;}
+.admin-msg.blocked{background:rgba(184,50,50,0.12);border:1px solid var(--rd);}
+.admin-msg.official{background:rgba(196,122,26,0.15);border:1px solid var(--am);}
+.msg-sender{font-size:11px;font-weight:700;margin-bottom:4px;}
+.msg-text{font-size:13px;color:rgba(255,255,255,0.85);line-height:1.5;}
+.msg-text.blocked-text{color:rgba(255,255,255,0.35);font-style:italic;}
+.msg-time-lbl{font-size:10px;color:rgba(255,255,255,0.25);margin-top:4px;}
+.admin-compose{background:#0a1a06;border:1px solid #1a3a0f;border-radius:10px;padding:14px;margin-top:2px;}
+.compose-type-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.compose-type-btn{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid #1a3a0f;background:none;color:rgba(255,255,255,0.4);cursor:pointer;}
+.compose-type-btn.active{background:var(--gm);color:var(--w);border-color:var(--gm);}
+.compose-type-btn.warn{border-color:var(--am);}
+.compose-type-btn.warn.active{background:var(--am);border-color:var(--am);}
+.compose-type-btn.ban{border-color:var(--rd);}
+.compose-type-btn.ban.active{background:var(--rd);border-color:var(--rd);}
+.compose-inp{width:100%;background:#162a0f;border:1.5px solid #1a3a0f;border-radius:8px;padding:10px 13px;font-size:13px;color:var(--w);resize:none;outline:none;min-height:70px;}
+.compose-inp:focus{border-color:var(--gb);}
+.compose-actions{display:flex;gap:8px;margin-top:10px;align-items:center;}
+.lock-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:#333;color:#888;}
+.lock-badge.locked{background:rgba(184,50,50,0.2);color:var(--rd);}
 
 /* AQA */
 .aqa-card{background:#0f2409;border:1px solid #1a3a0f;border-radius:10px;padding:14px;margin-bottom:10px;}
@@ -677,61 +701,264 @@ window.updateAQA=async function(id,status){
 };
 
 // ── CHAT MODERATION ──
+// ── ADMIN CHAT MODERATION + MESSAGING ──
+let _currentChatId=null;
+let _adminMsgType='official'; // 'official' | 'warning' | 'lock'
+
 async function loadChat(){
   const el=document.getElementById('screen-chat');
-  el.innerHTML=`<div class="topbar"><div><div class="page-title">Chat Moderation</div><div class="page-sub">All conversations — phone numbers blocked automatically</div></div></div>
-  <div class="two-col" style="margin-bottom:14px;">
-    <div class="stat-box"><div class="stat-val" id="chat-total">—</div><div class="stat-lbl">Total conversations</div></div>
-    <div class="stat-box"><div class="stat-val" id="chat-flagged" style="color:var(--rd)">—</div><div class="stat-lbl">Flagged messages</div></div>
+  el.innerHTML=`<div class="topbar">
+    <div><div class="page-title">Chat Moderation</div><div class="page-sub">Read, message, warn, or lock any conversation</div></div>
+    <button class="btn btn-g btn-sm" onclick="openDirectMsgModal()">✉️ Message a user</button>
   </div>
-  <div id="chat-list"><div class="loading-inline">Loading...</div></div>`;
+  <div class="three-col" style="margin-bottom:16px;">
+    <div class="stat-box"><div class="stat-val" id="chat-total">—</div><div class="stat-lbl">Conversations</div></div>
+    <div class="stat-box"><div class="stat-val" id="chat-flagged" style="color:var(--rd)">—</div><div class="stat-lbl">Flagged</div></div>
+    <div class="stat-box"><div class="stat-val" id="chat-locked" style="color:#888">—</div><div class="stat-lbl">Locked</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:16px;min-height:500px;">
+    <div>
+      <div class="ct" style="margin-bottom:10px;">All conversations</div>
+      <div id="chat-list"><div class="loading-inline">Loading...</div></div>
+    </div>
+    <div id="chat-detail-panel" style="background:#0f2409;border:1px solid #1a3a0f;border-radius:10px;padding:16px;display:flex;flex-direction:column;">
+      <div style="color:rgba(255,255,255,0.2);font-size:13px;text-align:center;margin:auto;">Select a conversation to view messages and respond</div>
+    </div>
+  </div>`;
   try{
     const snap=await getDocs(collection(db,'chats'));
     const chats=snap.docs.map(d=>({id:d.id,...d.data()}));
     const flagged=chats.filter(c=>c.flaggedCount>0);
+    const locked=chats.filter(c=>c.locked);
     const el=id=>document.getElementById(id);
     if(el('chat-total'))el('chat-total').textContent=chats.length;
     if(el('chat-flagged'))el('chat-flagged').textContent=flagged.length;
+    if(el('chat-locked'))el('chat-locked').textContent=locked.length;
     const cont=document.getElementById('chat-list');
-    cont.innerHTML=chats.length===0?`<div class="empty">No chats yet. They appear when users message each other on a deal.</div>`:
-      `<div class="chat-list">${chats.map(c=>`<div class="chat-item ${c.flaggedCount>0?'flagged':''}" onclick="viewChat('${c.id}')">
+    if(chats.length===0){cont.innerHTML=`<div class="empty" style="padding:20px 0;">No conversations yet.</div>`;return;}
+    cont.innerHTML=chats.map(c=>`
+      <div class="chat-item ${c.flaggedCount>0?'flagged':''} ${c.locked?'locked':''}" id="chatitem-${c.id}" onclick="adminViewChat('${c.id}')">
         <div class="ci-header">
-          <div class="ci-parties" style="font-family:monospace">${c.farmerName||'Farmer #????'} ↔ ${c.brokerName||'Broker #????'}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:2px;">Crop: ${c.cropName||'?'}</div>
-          <div style="display:flex;gap:6px;align-items:center;">${c.flaggedCount>0?`<span class="ci-flag">⚠️ ${c.flaggedCount} blocked</span>`:''}<span class="ci-time">${c.lastAt?.toDate?c.lastAt.toDate().toLocaleDateString():'—'}</span></div>
+          <div style="flex:1;">
+            <div class="ci-parties" style="font-size:12px;font-family:monospace">${c.farmerName||'Farmer #????'} ↔ ${c.brokerName||'Broker #????'}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:2px;">${c.cropName||'?'} · ${c.lastAt?.toDate?c.lastAt.toDate().toLocaleDateString():'—'}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
+            ${c.flaggedCount>0?`<span class="ci-flag">⚠️ ${c.flaggedCount}</span>`:''}
+            ${c.locked?`<span class="lock-badge locked">🔒 Locked</span>`:''}
+          </div>
         </div>
         <div class="ci-preview">${c.lastMessage||'No messages yet'}</div>
-      </div>`).join('')}</div>`;
+      </div>`).join('');
   }catch(e){document.getElementById('chat-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
 }
 
-window.viewChat=async function(chatId){
-  const msgsSnap=await getDocs(collection(db,'chats',chatId,'messages')).catch(()=>({docs:[]}));
-  const msgs=msgsSnap.docs.map(d=>d.data());
-  document.getElementById('modal-content').innerHTML=`
-    <div class="modal-title">Conversation</div>
-    <div class="modal-sub">Read-only view for moderation</div>
-    <div style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
-      ${msgs.length===0?`<div class="empty">No messages yet.</div>`:msgs.map(m=>`
-        <div style="background:${m.blocked?'rgba(184,50,50,0.15)':'#162a0f'};border:1px solid ${m.blocked?'var(--rd)':'#1a3a0f'};border-radius:8px;padding:10px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-            <span style="font-size:11px;font-weight:700;color:${m.blocked?'var(--rd)':'var(--gb)'}">${m.senderName||'User'}</span>
-            ${m.blocked?`<span class="badge bp">⚠️ Blocked — phone detected</span>`:''}
-          </div>
-          <div style="font-size:13px;color:rgba(255,255,255,${m.blocked?0.4:0.85})">${m.blocked?'[Message blocked — attempted phone number sharing]':m.text}</div>
-        </div>`).join('')}
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-og" onclick="closeModal()">Close</button>
-      <button class="btn btn-r btn-sm" onclick="clearChat('${chatId}')">Clear conversation</button>
-    </div>`;
-  document.getElementById('modal').classList.add('open');
+window.adminViewChat=async function(chatId){
+  _currentChatId=chatId;
+  // Highlight selected
+  document.querySelectorAll('.chat-item').forEach(el=>el.style.borderColor='');
+  const selected=document.getElementById('chatitem-'+chatId);
+  if(selected)selected.style.borderColor='var(--gb)';
+
+  const panel=document.getElementById('chat-detail-panel');
+  panel.innerHTML=`<div class="loading-inline">Loading...</div>`;
+
+  try{
+    const [chatSnap,msgsSnap]=await Promise.all([
+      getDoc(doc(db,'chats',chatId)),
+      getDocs(collection(db,'chats',chatId,'messages')).catch(()=>({docs:[]})),
+    ]);
+    const chat=chatSnap.exists()?chatSnap.data():{};
+    const msgs=msgsSnap.docs
+      .map(d=>({id:d.id,...d.data()}))
+      .sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+
+    const isLocked=chat.locked||false;
+
+    panel.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-shrink:0;">
+        <div>
+          <div style="font-size:14px;font-weight:700;font-family:monospace;">${chat.farmerName||'Farmer #????'} ↔ ${chat.brokerName||'Broker #????'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px;">${chat.cropName||'?'} · ${chat.flaggedCount||0} blocked msgs</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm ${isLocked?'btn-og':'btn-r'}" onclick="toggleChatLock('${chatId}',${isLocked})">
+            ${isLocked?'🔓 Unlock':'🔒 Lock'}
+          </button>
+          <button class="btn btn-sm" style="background:#333;color:#ccc;border:none;" onclick="clearChatAdmin('${chatId}')">🗑 Clear</button>
+        </div>
+      </div>
+      ${isLocked?`<div style="background:rgba(184,50,50,0.15);border:1px solid var(--rd);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--rd);margin-bottom:10px;flex-shrink:0;">🔒 This conversation is locked — users cannot send new messages</div>`:''}
+      <div class="admin-msg-wrap" id="admin-msg-thread">
+        ${msgs.length===0?`<div style="color:rgba(255,255,255,0.2);font-size:13px;text-align:center;padding:20px 0;">No messages yet</div>`:
+          msgs.map(m=>{
+            const isAdmin=m.senderRole==='admin';
+            const isBlocked=m.blocked;
+            const isOfficial=m.msgType==='official'||m.msgType==='warning';
+            let cls='normal';
+            if(isBlocked)cls='blocked';
+            else if(isAdmin)cls='official';
+            return`<div class="admin-msg ${cls}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                <span class="msg-sender" style="color:${isAdmin?'var(--am)':isBlocked?'var(--rd)':'var(--gb)'}">${isAdmin?'🛡️ Hub-In Rwanda':m.senderName||'User'}</span>
+                ${isBlocked?`<span class="badge bp" style="font-size:9px;">⚠️ BLOCKED</span>`:''}
+                ${isAdmin&&m.msgType==='warning'?`<span class="badge ba" style="font-size:9px;">⚠️ WARNING</span>`:''}
+              </div>
+              <div class="msg-text ${isBlocked?'blocked-text':''}">${isBlocked?'[Blocked — attempted phone number sharing]':m.text}</div>
+              <div class="msg-time-lbl">${m.createdAt?.toDate?m.createdAt.toDate().toLocaleString():'—'}</div>
+            </div>`;
+          }).join('')}
+      </div>
+      <div class="admin-compose" style="flex-shrink:0;">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:8px;">ADMIN RESPONSE</div>
+        <div class="compose-type-row">
+          <button class="compose-type-btn active" id="ctype-official" onclick="setMsgType('official')">📢 Official</button>
+          <button class="compose-type-btn warn" id="ctype-warning" onclick="setMsgType('warning')">⚠️ Warning</button>
+        </div>
+        <textarea class="compose-inp" id="admin-compose-text" placeholder="Type your message to both parties in this conversation..."></textarea>
+        <div class="compose-actions">
+          <button class="btn btn-g btn-sm" onclick="sendAdminMsg('${chatId}')">Send to conversation</button>
+          <div style="font-size:11px;color:rgba(255,255,255,0.25);flex:1;">Both parties will see this message marked as Hub-In Rwanda official.</div>
+        </div>
+      </div>`;
+
+    // Scroll messages to bottom
+    const thread=document.getElementById('admin-msg-thread');
+    if(thread)thread.scrollTop=thread.scrollHeight;
+  }catch(e){
+    panel.innerHTML=`<div class="empty">Error loading chat: ${e.message}</div>`;
+  }
 };
 
-window.clearChat=async function(chatId){
-  if(!confirm('Clear this conversation?'))return;
-  await updateDoc(doc(db,'chats',chatId),{cleared:true,clearedAt:serverTimestamp()});
-  closeModal();toast('Conversation cleared.');loadChat();
+window.setMsgType=function(type){
+  _adminMsgType=type;
+  document.querySelectorAll('.compose-type-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('ctype-'+type);
+  if(btn)btn.classList.add('active');
+};
+
+window.sendAdminMsg=async function(chatId){
+  const text=document.getElementById('admin-compose-text')?.value.trim();
+  if(!text){toast('Please type a message.');return;}
+  try{
+    // Send into the chat subcollection — visible to both farmer and broker
+    await addDoc(collection(db,'chats',chatId,'messages'),{
+      senderId:'admin',
+      senderName:'Hub-In Rwanda',
+      senderRole:'admin',
+      msgType:_adminMsgType,
+      text,
+      blocked:false,
+      createdAt:serverTimestamp(),
+    });
+    // Update chat metadata
+    await updateDoc(doc(db,'chats',chatId),{
+      lastMessage:`[Hub-In] ${text.slice(0,50)}`,
+      lastAt:serverTimestamp(),
+    }).catch(()=>{});
+    const inp=document.getElementById('admin-compose-text');
+    if(inp)inp.value='';
+    toast('✅ Message sent to conversation.');
+    // Refresh the panel
+    await adminViewChat(chatId);
+  }catch(e){toast('❌ Error: '+e.message);}
+};
+
+window.toggleChatLock=async function(chatId,currentlyLocked){
+  const action=currentlyLocked?'unlock':'lock';
+  if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this conversation? Users ${currentlyLocked?'will':'will not'} be able to send messages.`))return;
+  await updateDoc(doc(db,'chats',chatId),{locked:!currentlyLocked,lockedAt:serverTimestamp()});
+  toast(`✅ Conversation ${action}ed.`);
+  await adminViewChat(chatId);
+  loadChat(); // Refresh list badges
+};
+
+window.clearChatAdmin=async function(chatId){
+  if(!confirm('Clear all messages in this conversation? This cannot be undone.'))return;
+  await updateDoc(doc(db,'chats',chatId),{cleared:true,clearedAt:serverTimestamp(),lastMessage:'[Cleared by admin]'});
+  toast('Conversation cleared.');
+  await adminViewChat(chatId);
+  loadChat();
+};
+
+// ── DIRECT MESSAGE TO A SPECIFIC USER ──
+window.openDirectMsgModal=function(){
+  document.getElementById('modal-content').innerHTML=`
+    <div class="modal-title">✉️ Message a user directly</div>
+    <div class="modal-sub">Send an official Hub-In Rwanda message to a specific user. They will see it in all their chat conversations.</div>
+    <div class="fg">
+      <label class="fl">Select user</label>
+      <select class="fi2" id="dm-user-select">
+        <option value="">Loading users...</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">Message type</label>
+      <select class="fi2" id="dm-type">
+        <option value="official">📢 Official notice</option>
+        <option value="warning">⚠️ Warning — suspicious activity</option>
+        <option value="info">ℹ️ Information</option>
+        <option value="suspension">🚫 Suspension notice</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">Message</label>
+      <textarea class="fi2" id="dm-text" rows="4" placeholder="Type your message..."></textarea>
+    </div>
+    <div id="dm-templates" style="margin-bottom:12px;">
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:6px;">QUICK TEMPLATES</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm" style="background:#162a0f;color:rgba(255,255,255,0.6);border:1px solid #1a3a0f;font-size:11px;" onclick="setDmTemplate('warn')">⚠️ Phone sharing warning</button>
+        <button class="btn btn-sm" style="background:#162a0f;color:rgba(255,255,255,0.6);border:1px solid #1a3a0f;font-size:11px;" onclick="setDmTemplate('fraud')">🚫 Suspicious activity</button>
+        <button class="btn btn-sm" style="background:#162a0f;color:rgba(255,255,255,0.6);border:1px solid #1a3a0f;font-size:11px;" onclick="setDmTemplate('offplatform')">❌ Off-platform redirect</button>
+        <button class="btn btn-sm" style="background:#162a0f;color:rgba(255,255,255,0.6);border:1px solid #1a3a0f;font-size:11px;" onclick="setDmTemplate('quality')">🔍 AQA reminder</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-og" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-g" onclick="sendDirectMsg()">Send message</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+  // Load users into dropdown
+  getDocs(collection(db,'users')).then(snap=>{
+    const users=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const sel=document.getElementById('dm-user-select');
+    if(sel)sel.innerHTML=`<option value="">Select a user...</option>`+
+      users.map(u=>`<option value="${u.uid}">${u.fname} ${u.lname||''} · ${u.role} · ${u.phone||''}</option>`).join('');
+  }).catch(()=>{});
+};
+
+const DM_TEMPLATES={
+  warn:'⚠️ Warning from Hub-In Rwanda: We detected an attempt to share contact information in your conversation. This is not allowed on AgriConnect. All communication must happen on this platform. Repeated violations may result in account suspension.',
+  fraud:'🚫 Notice from Hub-In Rwanda: We have flagged suspicious activity on your account. Our team is reviewing your recent transactions. Please ensure all deals are conducted honestly and transparently. Contact admin@hub-in.rw if you have questions.',
+  offplatform:'❌ Notice from Hub-In Rwanda: We detected an attempt to move this deal off the AgriConnect platform. This violates our terms of service. All deals must be completed on AgriConnect to ensure payment protection and quality assurance for both parties.',
+  quality:'🔍 Reminder from Hub-In Rwanda: Before confirming payment on this deal, we strongly recommend requesting an AgriConnect Quality Assurance (AQA) inspection. Our field agents will visit the farm and verify produce quality within 48 hours. Request one from your chat screen.',
+};
+
+window.setDmTemplate=function(key){
+  const inp=document.getElementById('dm-text');
+  if(inp&&DM_TEMPLATES[key])inp.value=DM_TEMPLATES[key];
+};
+
+window.sendDirectMsg=async function(){
+  const uid=document.getElementById('dm-user-select')?.value;
+  const type=document.getElementById('dm-type')?.value||'official';
+  const text=document.getElementById('dm-text')?.value.trim();
+  if(!uid){toast('Please select a user.');return;}
+  if(!text){toast('Please type a message.');return;}
+  try{
+    // Save to a dedicated admin_messages collection — app will show these
+    await addDoc(collection(db,'admin_messages'),{
+      toUid:uid,
+      fromAdmin:true,
+      msgType:type,
+      text,
+      read:false,
+      createdAt:serverTimestamp(),
+    });
+    closeModal();
+    toast('✅ Message sent to user.');
+  }catch(e){toast('❌ Error: '+e.message);}
 };
 
 // ── PRICES ──
