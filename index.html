@@ -742,7 +742,7 @@ function renderPrices(){
   <div class="card">
     <div class="ct">Prices for: ${S.priceRegion}</div>
     <div id="price-rows">${CROPS.map((c,i)=>`<div class="price-row">
-      <div class="pr-icon">${c.icon?`<img src="${c.icon}" alt="${c.name}">`:(c.emoji||'🌾')}</div>
+      <div class="pr-icon">${c.icon&&c.icon.startsWith('http')?`<img src="${c.icon}" alt="${c.name}">`:(c.emoji||'🌾')}</div>
       <div class="pr-name">${c.name}</div>
       <input class="pr-inp" id="price-${i}" type="number" value="${(c.prices&&c.prices[S.priceRegion])||c.price||0}">
       <span class="pr-change" style="color:${(c.change||0)>0?'var(--gb)':'var(--rd)'}">${(c.change||0)>0?'+':''}${c.change||0}%</span>
@@ -778,7 +778,7 @@ function renderCrops(){
     <div class="card">
       <div class="ct">Current crops</div>
       <div id="crop-admin-list">${CROPS.map((c,i)=>`<div class="price-row">
-        <div class="pr-icon">${c.icon?`<img src="${c.icon}" alt="${c.name}">`:(c.emoji||'🌾')}</div>
+        <div class="pr-icon">${c.icon&&c.icon.startsWith('http')?`<img src="${c.icon}" alt="${c.name}">`:(c.emoji||'🌾')}</div>
         <div class="pr-name">${c.name}</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.4)">${c.prices?.['Rwanda (All)']||c.price||0} RWF/kg</div>
         <label style="cursor:pointer;margin-left:auto;">
@@ -821,7 +821,7 @@ window.uploadCropIcon=async function(idx,input){
     await uploadBytes(r,file);
     const url=await getDownloadURL(r);
     CROPS[idx].icon=url;
-    if(CROPS[idx].id){await updateDoc(doc(db,'crops',CROPS[idx].id),{icon:url});}
+    if(CROPS[idx].id){await updateDoc(doc(db,'crops',CROPS[idx].id),{icon:url,emoji:CROPS[idx].emoji||'🌾'});}
     toast('✅ Icon updated!');renderCrops();
   }catch(e){toast('❌ Upload failed: '+e.message);}
 };
@@ -841,7 +841,7 @@ window.addCropAdmin=async function(){
       await uploadBytes(r,file);
       iconUrl=await getDownloadURL(r);
     }
-    const newCrop={name,emoji,type,icon:iconUrl,price,prices:{'Rwanda (All)':price},change:0};
+    const newCrop={name,emoji:emoji||'🌾',icon:iconUrl||null,type,price,prices:{'Rwanda (All)':price},change:0};
     const docRef=await addDoc(collection(db,'crops'),newCrop);
     CROPS.push({...newCrop,id:docRef.id});
     toast('✅ Crop added!');renderCrops();
