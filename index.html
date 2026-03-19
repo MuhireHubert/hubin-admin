@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<!-- 
+  HUB-IN RWANDA — OPERATIONS DASHBOARD
+  ─────────────────────────────────────
+  This file is intended to be deployed as a SEPARATE repository from AgriConnect.
+  
+  Recommended deployment:
+  1. Create a new private GitHub repo: muhirehubert/hubin-admin
+  2. Add this file as index.html
+  3. Enable GitHub Pages (or deploy to Vercel/Netlify for password-protected access)
+  4. Add to .gitignore if you want to keep it off the public internet
+  
+  Credentials: hubin-admin / AgriAdmin@2026
+  Firebase project: agriconnect-8d029 (same backend, admin read/write access)
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub-In Rwanda — Operations Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--gd:#0f2409;--gm:#1e5c0f;--gb:#2e8b1a;--gl:#d6edcb;--am:#c47a1a;--al:#fef3dc;--bl:#1a5fa8;--bll:#e4eef9;--rd:#b83232;--rll:#fdeaea;--pu:#6b3fa0;--pul:#f0eafc;--g9:#1a1a18;--g7:#3d3d38;--g5:#6b6b64;--g3:#b8b8b0;--g1:#f0f0eb;--g0:#fafaf7;--w:#fff;--sh:0 2px 8px rgba(0,0,0,0.08);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#0a1a06;color:var(--w);min-height:100vh;}
+input,select,textarea,button{font-family:'DM Sans',sans-serif;}
+
+/* LOGIN */
+#pg-login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.login-box{background:#0f2409;border:1px solid #1e5c0f;border-radius:20px;padding:40px 36px;width:100%;max-width:400px;text-align:center;}
+.login-logo{font-size:48px;margin-bottom:12px;}
+.login-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--w);margin-bottom:4px;}
+.login-sub{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:28px;}
+.lf{margin-bottom:14px;text-align:left;}
+.ll{font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);margin-bottom:5px;display:block;}
+.li{width:100%;padding:11px 14px;background:#162a0f;border:1.5px solid #1e5c0f;border-radius:8px;font-size:14px;color:var(--w);outline:none;}
+.li:focus{border-color:var(--gb);}
+.lerr{background:var(--rll);border:1px solid var(--rd);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:12px;display:none;}
+.lbtn{width:100%;padding:13px;background:var(--gm);border:none;border-radius:8px;color:var(--w);font-size:15px;font-weight:700;cursor:pointer;}
+.lbtn:hover{background:var(--gb);}
+
+/* DASHBOARD */
+#pg-dash{display:none;flex-direction:row;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:220px;background:#0a1a06;border-right:1px solid #1a3a0f;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;overflow-y:auto;flex-shrink:0;}
+.sb-logo{padding:22px 18px 14px;border-bottom:1px solid #1a3a0f;}
+.sb-name{font-family:'DM Serif Display',serif;font-size:18px;color:var(--w);}
+.sb-sub{font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px;}
+.sb-section{font-size:9px;font-weight:700;color:rgba(255,255,255,0.25);letter-spacing:.1em;padding:16px 18px 6px;text-transform:uppercase;}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;border-radius:0;transition:all 0.15s;color:rgba(255,255,255,0.5);font-size:13px;font-weight:500;border:none;background:none;width:100%;text-align:left;}
+.sb-item:hover{background:#0f2409;color:var(--w);}
+.sb-item.active{background:#162a0f;color:var(--gb);font-weight:700;border-left:3px solid var(--gb);}
+.sb-item .si{font-size:16px;width:20px;text-align:center;}
+.sb-bottom{margin-top:auto;padding:16px 18px;border-top:1px solid #1a3a0f;}
+.sb-user{font-size:12px;color:rgba(255,255,255,0.4);}
+.sb-logout{background:none;border:1px solid #1a3a0f;color:rgba(255,255,255,0.4);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;margin-top:8px;width:100%;}
+.sb-logout:hover{background:#1a3a0f;color:var(--w);}
+
+/* MAIN */
+.main{margin-left:220px;padding:28px;flex:1;min-height:100vh;}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.page-title{font-family:'DM Serif Display',serif;font-size:28px;color:var(--w);}
+.page-sub{font-size:13px;color:rgba(255,255,255,0.35);margin-top:2px;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.live-dot{width:8px;height:8px;background:#2e8b1a;border-radius:50%;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.live-lbl{font-size:12px;color:rgba(255,255,255,0.4);}
+
+/* CARDS */
+.card{background:#0f2409;border:1px solid #1a3a0f;border-radius:12px;padding:18px;}
+.ct{font-size:10px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;}
+.screen{display:none;animation:fi 0.2s ease;}
+.screen.show{display:block;}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* STAT GRID */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.stat-box{background:#0f2409;border:1px solid #1a3a0f;border-radius:12px;padding:16px;}
+.stat-val{font-family:'DM Serif Display',serif;font-size:32px;color:var(--w);margin-bottom:4px;}
+.stat-lbl{font-size:12px;color:rgba(255,255,255,0.4);}
+.stat-trend{font-size:11px;font-weight:700;margin-top:4px;}
+.trend-up{color:var(--gb);} .trend-dn{color:var(--rd);}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead tr{border-bottom:1px solid #1a3a0f;}
+th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
+td{padding:10px 12px;border-bottom:1px solid #0f2409;color:rgba(255,255,255,0.75);vertical-align:middle;}
+tr:hover td{background:#0f2409;}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.bg{background:var(--gl);color:var(--gd);} .ba{background:var(--al);color:var(--am);} .bb{background:var(--bll);color:var(--bl);} .bgr{background:#222;color:#888;} .bp{background:var(--pul);color:var(--pu);}
+
+/* FORMS */
+.fg{margin-bottom:14px;}
+.fl{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:5px;display:block;}
+.fi2{width:100%;padding:10px 13px;background:#162a0f;border:1.5px solid #1a3a0f;border-radius:8px;font-size:14px;color:var(--w);outline:none;}
+.fi2:focus{border-color:var(--gb);}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.btn{padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-g{background:var(--gm);color:var(--w);} .btn-g:hover{background:var(--gb);}
+.btn-r{background:var(--rd);color:var(--w);}
+.btn-og{background:none;border:1.5px solid var(--gb);color:var(--gb);}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.btn-full{width:100%;padding:11px;}
+
+/* UPLOAD */
+.upload-zone{border:2px dashed #1e5c0f;border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;}
+.upload-zone:hover{border-color:var(--gb);background:#0f2409;}
+.upload-preview{width:72px;height:72px;border-radius:10px;object-fit:cover;margin:8px auto;display:block;border:2px solid #1e5c0f;}
+
+/* PRICE GRID */
+.price-region-tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+.prtab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid #1a3a0f;background:none;color:rgba(255,255,255,0.4);cursor:pointer;}
+.prtab.active{background:var(--gm);color:var(--w);border-color:var(--gm);}
+.price-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1a3a0f;}
+.price-row:last-child{border-bottom:none;}
+.pr-icon{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#162a0f;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.pr-icon img{width:40px;height:40px;border-radius:8px;object-fit:cover;}
+.pr-name{flex:1;font-size:14px;font-weight:600;color:var(--w);}
+.pr-inp{width:90px;padding:7px 10px;background:#162a0f;border:1.5px solid #1a3a0f;border-radius:8px;font-size:14px;font-weight:700;color:var(--gb);text-align:right;outline:none;}
+.pr-inp:focus{border-color:var(--gb);}
+.pr-change{width:60px;text-align:right;font-size:12px;font-weight:700;}
+.pr-del{background:none;border:none;color:#333;font-size:16px;cursor:pointer;padding:4px;}
+.pr-del:hover{color:var(--rd);}
+
+/* DELIVERY TRACKER */
+.delivery-card{background:#0f2409;border:1px solid #1a3a0f;border-radius:10px;padding:14px;margin-bottom:10px;}
+.dc-route{font-size:15px;font-weight:700;color:var(--w);margin-bottom:4px;}
+.dc-meta{font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:12px;}
+.dc-steps{display:flex;align-items:center;gap:0;}
+.dc-step{display:flex;flex-direction:column;align-items:center;flex:1;}
+.dc-dot{width:14px;height:14px;border-radius:50%;border:2px solid #1a3a0f;background:#0a1a06;}
+.dc-dot.done{background:var(--gb);border-color:var(--gb);}
+.dc-dot.active{background:var(--am);border-color:var(--am);}
+.dc-line{flex:1;height:2px;background:#1a3a0f;margin-top:6px;}
+.dc-line.done{background:var(--gb);}
+.dc-lbl{font-size:9px;color:rgba(255,255,255,0.3);margin-top:5px;text-align:center;max-width:55px;}
+.dc-lbl.active{color:var(--am);}
+
+/* CHAT MODERATION */
+.chat-list{display:flex;flex-direction:column;gap:8px;}
+.chat-item{background:#0f2409;border:1px solid #1a3a0f;border-radius:10px;padding:12px;cursor:pointer;}
+.chat-item:hover{border-color:#1e5c0f;}
+.chat-item.flagged{border-color:var(--rd);}
+.ci-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+.ci-parties{font-size:13px;font-weight:600;color:var(--w);}
+.ci-time{font-size:11px;color:rgba(255,255,255,0.3);}
+.ci-preview{font-size:12px;color:rgba(255,255,255,0.4);}
+.ci-flag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--rll);color:var(--rd);}
+
+/* AQA */
+.aqa-card{background:#0f2409;border:1px solid #1a3a0f;border-radius:10px;padding:14px;margin-bottom:10px;}
+.aqa-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.aqa-title{font-size:14px;font-weight:600;color:var(--w);}
+.aqa-sub{font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;}
+.aqa-actions{display:flex;gap:8px;margin-top:12px;}
+
+/* QA PHOTO */
+.qa-photos{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;}
+.qa-photo{width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid #1a3a0f;}
+
+/* SECTION GRID */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.loading-inline{text-align:center;padding:30px;color:rgba(255,255,255,0.2);font-size:13px;}
+.empty{text-align:center;padding:40px;color:rgba(255,255,255,0.2);font-size:13px;}
+.toast{position:fixed;bottom:24px;right:24px;background:#162a0f;border:1px solid var(--gb);color:var(--w);padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:999;}
+.toast.show{opacity:1;}
+
+/* REVENUE CHART */
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:120px;padding:0 0 24px;position:relative;}
+.bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.bar{width:100%;background:var(--gm);border-radius:4px 4px 0 0;transition:height 0.5s;min-height:4px;}
+.bar-lbl{font-size:9px;color:rgba(255,255,255,0.3);white-space:nowrap;}
+.bar-val{font-size:9px;color:var(--gb);font-weight:700;}
+
+/* SEARCH */
+.search-bar{display:flex;gap:10px;margin-bottom:16px;}
+.search-inp{flex:1;padding:9px 14px;background:#162a0f;border:1.5px solid #1a3a0f;border-radius:8px;font-size:13px;color:var(--w);outline:none;}
+.search-inp:focus{border-color:var(--gb);}
+.filter-sel{padding:9px 13px;background:#162a0f;border:1.5px solid #1a3a0f;border-radius:8px;font-size:13px;color:var(--w);outline:none;}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.modal-bg.open{display:flex;}
+.modal-box{background:#0f2409;border:1px solid #1e5c0f;border-radius:16px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-family:'DM Serif Display',serif;font-size:20px;color:var(--w);margin-bottom:4px;}
+.modal-sub{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:20px;}
+.modal-actions{display:flex;gap:10px;margin-top:18px;}
+.modal-actions .btn{flex:1;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="pg-login">
+  <div class="login-box">
+    <div class="login-logo">🌾</div>
+    <div class="login-title">Hub-In Rwanda</div>
+    <div class="login-sub">Operations Dashboard — Restricted Access</div><div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.2);">hub-in-admin.vercel.app</div>
+    <div class="lerr" id="lerr"></div>
+    <div class="lf"><label class="ll">Admin username</label><input class="li" id="a-user" type="text" placeholder="hubin-admin"></div>
+    <div class="lf"><label class="ll">Password</label><input class="li" id="a-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="lbtn" onclick="doLogin()">Access dashboard</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="pg-dash">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-name">Hub-In Rwanda</div>
+      <div class="sb-sub">Operations Console</div>
+    </div>
+    <div class="sb-section">Platform</div>
+    <button class="sb-item active" onclick="showScreen('overview')" id="sbi-overview"><span class="si">📊</span> Overview</button>
+    <button class="sb-item" onclick="showScreen('users')" id="sbi-users"><span class="si">👥</span> Users</button>
+    <button class="sb-item" onclick="showScreen('listings')" id="sbi-listings"><span class="si">🌾</span> Listings</button>
+    <button class="sb-item" onclick="showScreen('transactions')" id="sbi-transactions"><span class="si">💰</span> Transactions</button>
+    <div class="sb-section">Operations</div>
+    <button class="sb-item" onclick="showScreen('deliveries')" id="sbi-deliveries"><span class="si">🚛</span> Deliveries</button>
+    <button class="sb-item" onclick="showScreen('aqa')" id="sbi-aqa"><span class="si">🔍</span> Quality (AQA)</button>
+    <button class="sb-item" onclick="showScreen('chat')" id="sbi-chat"><span class="si">💬</span> Chat Moderation</button>
+    <div class="sb-section">Settings</div>
+    <button class="sb-item" onclick="showScreen('prices')" id="sbi-prices"><span class="si">📈</span> Prices</button>
+    <button class="sb-item" onclick="showScreen('crops')" id="sbi-crops"><span class="si">🌱</span> Crops & Icons</button>
+    <button class="sb-item" onclick="showScreen('alerts')" id="sbi-alerts"><span class="si">📢</span> Gov Alerts</button>
+    <div class="sb-bottom">
+      <div class="sb-user" id="sb-user-lbl">Hub-In Admin</div>
+      <button class="sb-logout" onclick="doLogout()">⏻ Sign out</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main" id="main-content">
+    <div id="screen-overview" class="screen show"></div>
+    <div id="screen-users" class="screen"></div>
+    <div id="screen-listings" class="screen"></div>
+    <div id="screen-transactions" class="screen"></div>
+    <div id="screen-deliveries" class="screen"></div>
+    <div id="screen-aqa" class="screen"></div>
+    <div id="screen-chat" class="screen"></div>
+    <div id="screen-prices" class="screen"></div>
+    <div id="screen-crops" class="screen"></div>
+    <div id="screen-alerts" class="screen"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal" onclick="closeModal(event)">
+  <div class="modal-box" id="modal-content"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{getFirestore,collection,doc,addDoc,setDoc,getDoc,getDocs,updateDoc,deleteDoc,query,where,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import{getStorage,ref,uploadBytes,getDownloadURL}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+const FC={apiKey:"AIzaSyDPmXpUzzz1kU9JnnbyoTW6f80cqV2Wauk",authDomain:"agriconnect-8d029.firebaseapp.com",projectId:"agriconnect-8d029",storageBucket:"agriconnect-8d029.firebasestorage.app",messagingSenderId:"215579651241",appId:"1:215579651241:web:ecd2a8be0a414cea910db8"};
+const fbApp=initializeApp(FC);
+const db=getFirestore(fbApp);
+const storage=getStorage(fbApp);
+
+const ADMIN_USER='hubin-admin', ADMIN_PASS='AgriAdmin@2026';
+const REGIONS=['Rwanda (All)','Eastern Province','Western Province','Northern Province','Southern Province','Kigali City','Uganda','Kenya','Tanzania'];
+let S={loggedIn:false,priceRegion:'Rwanda (All)'};
+let CROPS=[];
+
+// ── LOGIN ──
+window.doLogin=function(){
+  const u=document.getElementById('a-user').value.trim();
+  const p=document.getElementById('a-pass').value;
+  if(u===ADMIN_USER&&p===ADMIN_PASS){
+    S.loggedIn=true;
+    document.getElementById('pg-login').style.display='none';
+    document.getElementById('pg-dash').style.display='flex';
+    loadCrops().then(()=>showScreen('overview'));
+  }else{
+    const e=document.getElementById('lerr');
+    e.textContent='Invalid credentials.';e.style.display='block';
+  }
+};
+window.doLogout=function(){
+  S.loggedIn=false;
+  document.getElementById('pg-login').style.display='flex';
+  document.getElementById('pg-dash').style.display='none';
+};
+
+// ── SCREEN ROUTER ──
+window.showScreen=function(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show'));
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('show');
+  const sbi=document.getElementById('sbi-'+id);if(sbi)sbi.classList.add('active');
+  const loaders={overview:loadOverview,users:loadUsers,listings:loadListings,transactions:loadTransactions,deliveries:loadDeliveries,aqa:loadAQA,chat:loadChat,prices:()=>renderPrices(),crops:renderCrops,alerts:loadAlerts};
+  if(loaders[id])loaders[id]();
+};
+
+// ── CROPS ──
+async function loadCrops(){
+  try{
+    const snap=await getDocs(collection(db,'crops'));
+    CROPS=snap.empty?getDefaultCrops():snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){CROPS=getDefaultCrops();}
+}
+function getDefaultCrops(){
+  return[
+    {name:'Maize',icon:null,emoji:'🌽',type:'maize',prices:{'Rwanda (All)':290,'Eastern Province':275,'Western Province':285,'Northern Province':280,'Southern Province':270,'Kigali City':310,'Uganda':250,'Kenya':230,'Tanzania':210},change:5},
+    {name:'Irish Potatoes',icon:null,emoji:'🥔',type:'potatoes',prices:{'Rwanda (All)':175,'Eastern Province':160,'Western Province':185,'Northern Province':200,'Southern Province':170,'Kigali City':195,'Uganda':150,'Kenya':140,'Tanzania':130},change:-3},
+    {name:'Beans',icon:null,emoji:'🫘',type:'beans',prices:{'Rwanda (All)':660,'Eastern Province':640,'Western Province':650,'Northern Province':670,'Southern Province':645,'Kigali City':700,'Uganda':580,'Kenya':550,'Tanzania':520},change:2},
+    {name:'Cassava',icon:null,emoji:'🥬',type:'cassava',prices:{'Rwanda (All)':120,'Eastern Province':110,'Western Province':125,'Northern Province':115,'Southern Province':118,'Kigali City':140,'Uganda':100,'Kenya':95,'Tanzania':90},change:1},
+    {name:'Sorghum',icon:null,emoji:'🌾',type:'sorghum',prices:{'Rwanda (All)':310,'Eastern Province':295,'Western Province':305,'Northern Province':320,'Southern Province':300,'Kigali City':340,'Uganda':270,'Kenya':260,'Tanzania':245},change:-1},
+    {name:'Tomatoes',icon:null,emoji:'🍅',type:'tomatoes',prices:{'Rwanda (All)':400,'Eastern Province':380,'Western Province':395,'Northern Province':410,'Southern Province':385,'Kigali City':450,'Uganda':350,'Kenya':330,'Tanzania':310},change:8},
+    {name:'Rice',icon:null,emoji:'🍚',type:'rice',prices:{'Rwanda (All)':520,'Eastern Province':505,'Western Province':515,'Northern Province':525,'Southern Province':510,'Kigali City':560,'Uganda':480,'Kenya':450,'Tanzania':420},change:3},
+  ];
+}
+
+// ── OVERVIEW ──
+async function loadOverview(){
+  const el=document.getElementById('screen-overview');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Overview</div><div class="page-sub">Live platform snapshot</div></div><div class="topbar-right"><div class="live-dot"></div><span class="live-lbl">Live data</span></div></div>
+  <div class="stat-grid" id="ov-stats"><div class="loading-inline">Loading...</div></div>
+  <div class="two-col" style="margin-bottom:16px;">
+    <div class="card"><div class="ct">Revenue (commissions)</div><div id="ov-chart" class="loading-inline">Loading...</div></div>
+    <div class="card"><div class="ct">Recent activity</div><div id="ov-activity" class="loading-inline">Loading...</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="ct">Active deliveries</div><div id="ov-deliveries" class="loading-inline">Loading...</div></div>
+    <div class="card"><div class="ct">Pending AQA inspections</div><div id="ov-aqa" class="loading-inline">Loading...</div></div>
+  </div>`;
+
+  try{
+    const [uSnap,lSnap,oSnap,txSnap,jSnap,aqaSnap]=await Promise.all([
+      getDocs(collection(db,'users')),
+      getDocs(query(collection(db,'listings'),where('status','==','available'))),
+      getDocs(collection(db,'offers')),
+      getDocs(collection(db,'transactions')),
+      getDocs(collection(db,'jobs')),
+      getDocs(query(collection(db,'aqa_requests'),where('status','==','pending'))).catch(()=>({docs:[]})),
+    ]);
+    const users=uSnap.docs.map(d=>d.data());
+    const txs=txSnap.docs.map(d=>d.data());
+    const rev=txs.reduce((s,t)=>s+(t.commission||0),0);
+    const activeJobs=jSnap.docs.filter(d=>['in_progress','loaded'].includes(d.data().status));
+
+    document.getElementById('ov-stats').innerHTML=`
+      <div class="stat-box"><div class="stat-val">${uSnap.size}</div><div class="stat-lbl">Total users</div><div class="stat-trend trend-up">↑ ${users.filter(u=>u.role==='farmer').length} farmers</div></div>
+      <div class="stat-box"><div class="stat-val">${lSnap.size}</div><div class="stat-lbl">Active listings</div><div class="stat-trend trend-up">Available now</div></div>
+      <div class="stat-box"><div class="stat-val">${txSnap.size}</div><div class="stat-lbl">Transactions</div><div class="stat-trend trend-up">${oSnap.docs.filter(d=>d.data().status==='pending').length} offers pending</div></div>
+      <div class="stat-box"><div class="stat-val">${Math.round(rev/1000)}k</div><div class="stat-lbl">Revenue (RWF)</div><div class="stat-trend trend-up">Commissions earned</div></div>`;
+
+    // Mini bar chart (mock monthly)
+    const months=['Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+    const vals=[12,18,24,31,38,45,Math.round(rev/1000)||52];
+    const maxV=Math.max(...vals);
+    document.getElementById('ov-chart').innerHTML=`<div class="bar-chart">${months.map((m,i)=>`<div class="bar-wrap"><div class="bar-val">${vals[i]}k</div><div class="bar" style="height:${Math.round((vals[i]/maxV)*80)+10}px"></div><div class="bar-lbl">${m}</div></div>`).join('')}</div>`;
+
+    // Recent activity
+    const recent=oSnap.docs.slice(-5).reverse().map(d=>d.data());
+    document.getElementById('ov-activity').innerHTML=recent.length===0?`<div class="empty">No recent activity</div>`:recent.map(o=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a3a0f;font-size:12px;"><span style="color:rgba(255,255,255,0.6)">${o.brokerName||'Broker'} → ${o.farmerName||'Farmer'}</span><span class="badge ${o.status==='accepted'?'bg':o.status==='pending'?'ba':'bgr'}">${o.status}</span></div>`).join('');
+
+    // Active deliveries
+    document.getElementById('ov-deliveries').innerHTML=activeJobs.length===0?`<div class="empty">No active deliveries</div>`:activeJobs.slice(0,4).map(d=>d.data()).map(j=>`<div style="padding:8px 0;border-bottom:1px solid #1a3a0f;"><div style="font-size:13px;font-weight:600;color:var(--w)">${j.from||'?'} → ${j.to||'?'}</div><div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">${j.cargo||''} · <span class="badge ba">${j.status}</span></div></div>`).join('');
+
+    // AQA
+    document.getElementById('ov-aqa').innerHTML=`<div style="font-size:28px;font-weight:700;color:var(--am);font-family:'DM Serif Display',serif">${aqaSnap.docs.length}</div><div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">Awaiting field inspection</div><button class="btn btn-og btn-sm" style="margin-top:10px" onclick="showScreen('aqa')">View all →</button>`;
+  }catch(e){console.error(e);}
+}
+
+// ── USERS ──
+async function loadUsers(){
+  const el=document.getElementById('screen-users');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Users</div><div class="page-sub">All registered accounts</div></div><button class="btn btn-g btn-sm" onclick="exportUsers()">⬇ Export CSV</button></div>
+  <div class="search-bar"><input class="search-inp" id="user-search" placeholder="Search name, phone, location..." oninput="filterUsers()"><select class="filter-sel" id="user-role-filter" onchange="filterUsers()"><option value="">All roles</option><option>farmer</option><option>broker</option><option>transporter</option></select></div>
+  <div class="card"><div class="tbl-wrap"><div id="users-table"><div class="loading-inline">Loading...</div></div></div></div>`;
+
+  try{
+    const snap=await getDocs(collection(db,'users'));
+    window._all_users=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderUsersTable(window._all_users);
+  }catch(e){document.getElementById('users-table').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+}
+
+function renderUsersTable(users){
+  if(!users.length){document.getElementById('users-table').innerHTML=`<div class="empty">No users found.</div>`;return;}
+  document.getElementById('users-table').innerHTML=`<table>
+    <thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>MoMo</th><th>Location</th><th>Province</th><th>Vehicle</th><th>Rating</th><th>Joined</th><th>Actions</th></tr></thead>
+    <tbody>${users.map(u=>`<tr>
+      <td><strong>${u.fname||''} ${u.lname||''}</strong></td>
+      <td><span class="badge ${u.role==='farmer'?'bg':u.role==='broker'?'bb':'ba'}">${u.role||'?'}</span></td>
+      <td style="font-family:monospace">${u.phone||'—'}</td>
+      <td style="font-family:monospace">${u.momo||'—'}</td>
+      <td>${u.loc||'—'}</td>
+      <td>${u.province||'—'}</td>
+      <td>${u.vehicle||'—'}</td>
+      <td>${(u.rating||5).toFixed(1)}★</td>
+      <td>${u.joined?new Date(u.joined).toLocaleDateString():'—'}</td>
+      <td><button class="btn btn-og btn-sm" onclick="viewUser('${u.id}')">View</button></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+window.filterUsers=function(){
+  const q=(document.getElementById('user-search')?.value||'').toLowerCase();
+  const r=document.getElementById('user-role-filter')?.value||'';
+  let filtered=(window._all_users||[]).filter(u=>{
+    const match=!q||(u.fname+' '+u.lname+u.phone+u.loc).toLowerCase().includes(q);
+    const roleMatch=!r||u.role===r;
+    return match&&roleMatch;
+  });
+  renderUsersTable(filtered);
+};
+
+window.viewUser=function(uid){
+  const u=(window._all_users||[]).find(x=>x.id===uid);if(!u)return;
+  document.getElementById('modal-content').innerHTML=`
+    <div class="modal-title">${u.fname} ${u.lname||''}</div>
+    <div class="modal-sub"><span class="badge ${u.role==='farmer'?'bg':u.role==='broker'?'bb':'ba'}">${u.role}</span></div>
+    ${[['📱 Phone',u.phone],['💰 MoMo',u.momo],['📍 Location',u.loc],['🗺 Province',u.province],['🚛 Vehicle',u.vehicle||'—'],['📦 Capacity',u.capacity?u.capacity+'t':'—'],['⭐ Rating',u.rating?.toFixed(1)+'★'],['📅 Joined',u.joined?new Date(u.joined).toLocaleDateString():'—'],['✉️ Email',u.email]].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a3a0f;font-size:13px;"><span style="color:rgba(255,255,255,0.4)">${k}</span><span style="color:var(--w);font-weight:600">${v||'—'}</span></div>`).join('')}
+    <div class="modal-actions"><button class="btn btn-og" onclick="closeModal()">Close</button><button class="btn btn-r btn-sm" onclick="suspendUser('${uid}')">Suspend account</button></div>`;
+  document.getElementById('modal').classList.add('open');
+};
+
+window.exportUsers=function(){
+  const users=window._all_users||[];
+  const csv=['Name,Role,Phone,MoMo,Location,Province,Joined',...users.map(u=>`${u.fname} ${u.lname||''},${u.role},${u.phone||''},${u.momo||''},${u.loc||''},${u.province||''},${u.joined?new Date(u.joined).toLocaleDateString():''}`)].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='agriconnect_users.csv';a.click();
+  toast('✅ Users exported!');
+};
+
+// ── LISTINGS ──
+async function loadListings(){
+  const el=document.getElementById('screen-listings');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Listings</div><div class="page-sub">All produce posted on the platform</div></div></div>
+  <div class="search-bar"><input class="search-inp" id="list-search" placeholder="Search crop, location, farmer..." oninput="filterListings()"><select class="filter-sel" id="list-status-filter" onchange="filterListings()"><option value="">All status</option><option>available</option><option>sold</option></select></div>
+  <div class="card"><div class="tbl-wrap"><div id="listings-table"><div class="loading-inline">Loading...</div></div></div></div>`;
+  try{
+    const snap=await getDocs(collection(db,'listings'));
+    window._all_listings=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderListingsTable(window._all_listings);
+  }catch(e){document.getElementById('listings-table').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+}
+
+function renderListingsTable(listings){
+  if(!listings.length){document.getElementById('listings-table').innerHTML=`<div class="empty">No listings found.</div>`;return;}
+  document.getElementById('listings-table').innerHTML=`<table>
+    <thead><tr><th>Crop</th><th>Farmer</th><th>Qty (kg)</th><th>Price/kg</th><th>Reserved</th><th>Location</th><th>Status</th><th>Posted</th><th>Actions</th></tr></thead>
+    <tbody>${listings.map(l=>`<tr>
+      <td><strong>${l.icon?`<img src="${l.icon}" style="width:20px;height:20px;border-radius:4px;vertical-align:middle;margin-right:4px;">`:(l.emoji||'🌾')} ${l.crop}</strong></td>
+      <td>${l.farmerName||'?'}</td>
+      <td>${(l.qty||0).toLocaleString()}</td>
+      <td>${l.price||0} RWF</td>
+      <td>${(l.reserved||0).toLocaleString()} kg</td>
+      <td>${l.loc||'—'}</td>
+      <td><span class="badge ${l.status==='available'?'bg':'bgr'}">${l.status||'?'}</span></td>
+      <td>${l.createdAt?.toDate?l.createdAt.toDate().toLocaleDateString():'—'}</td>
+      <td><button class="btn btn-r btn-sm" onclick="removeListing('${l.id}')">Remove</button></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+window.filterListings=function(){
+  const q=(document.getElementById('list-search')?.value||'').toLowerCase();
+  const s=document.getElementById('list-status-filter')?.value||'';
+  renderListingsTable((window._all_listings||[]).filter(l=>(!q||(l.crop+l.loc+l.farmerName).toLowerCase().includes(q))&&(!s||l.status===s)));
+};
+
+window.removeListing=async function(id){
+  if(!confirm('Remove this listing?'))return;
+  await updateDoc(doc(db,'listings',id),{status:'removed'});
+  toast('Listing removed.');loadListings();
+};
+
+// ── TRANSACTIONS ──
+async function loadTransactions(){
+  const el=document.getElementById('screen-transactions');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Transactions</div><div class="page-sub">Full deal ledger — every confirmed trade</div></div><button class="btn btn-g btn-sm" onclick="exportTx()">⬇ Export CSV</button></div>
+  <div class="three-col" style="margin-bottom:16px;" id="tx-stats"><div class="loading-inline">Loading...</div></div>
+  <div class="card"><div class="tbl-wrap"><div id="tx-table"><div class="loading-inline">Loading...</div></div></div></div>`;
+  try{
+    const [txSnap,oSnap]=await Promise.all([getDocs(collection(db,'transactions')),getDocs(collection(db,'offers'))]);
+    const txs=txSnap.docs.map(d=>({id:d.id,...d.data()}));
+    window._all_txs=txs;
+    const total=txs.reduce((s,t)=>s+(t.amount||0),0);
+    const rev=txs.reduce((s,t)=>s+(t.commission||0),0);
+    const pending=oSnap.docs.filter(d=>d.data().status==='pending').length;
+    document.getElementById('tx-stats').innerHTML=`
+      <div class="stat-box"><div class="stat-val">${txs.length}</div><div class="stat-lbl">Confirmed deals</div></div>
+      <div class="stat-box"><div class="stat-val">${Math.round(total/1000)}k</div><div class="stat-lbl">Total traded (RWF)</div></div>
+      <div class="stat-box"><div class="stat-val">${Math.round(rev/1000)}k</div><div class="stat-lbl">Hub-In revenue (RWF)</div><div class="stat-trend trend-up">3% commissions</div></div>`;
+    if(!txs.length){document.getElementById('tx-table').innerHTML=`<div class="empty">No transactions yet.</div>`;return;}
+    document.getElementById('tx-table').innerHTML=`<table>
+      <thead><tr><th>Amount (RWF)</th><th>Commission</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>${txs.map(t=>`<tr>
+        <td style="font-weight:700">${(t.amount||0).toLocaleString()} RWF</td>
+        <td style="color:var(--gb)">${(t.commission||0).toLocaleString()} RWF</td>
+        <td><span class="badge ${t.status==='confirmed'?'bg':'ba'}">${t.status||'?'}</span></td>
+        <td>${t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():'—'}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }catch(e){console.error(e);}
+}
+window.exportTx=function(){
+  const txs=window._all_txs||[];
+  const csv=['Amount,Commission,Status,Date',...txs.map(t=>`${t.amount||0},${t.commission||0},${t.status||''},${t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():''}`)].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='agriconnect_transactions.csv';a.click();
+  toast('✅ Transactions exported!');
+};
+
+// ── DELIVERIES ──
+async function loadDeliveries(){
+  const el=document.getElementById('screen-deliveries');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Delivery Tracking</div><div class="page-sub">All active and completed deliveries</div></div></div>
+  <div class="search-bar"><select class="filter-sel" id="del-filter" onchange="filterDeliveries()"><option value="">All deliveries</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="loaded">Loaded</option><option value="delivered">Delivered</option></select></div>
+  <div id="deliveries-list"><div class="loading-inline">Loading...</div></div>`;
+  try{
+    const snap=await getDocs(collection(db,'jobs'));
+    window._all_jobs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderDeliveries(window._all_jobs);
+  }catch(e){document.getElementById('deliveries-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+}
+
+function renderDeliveries(jobs){
+  const cont=document.getElementById('deliveries-list');
+  if(!jobs.length){cont.innerHTML=`<div class="empty">No deliveries found.</div>`;return;}
+  const steps=['open','in_progress','loaded','delivered'];
+  const stepLabels=['Job open','At farm','Loaded','Delivered'];
+  cont.innerHTML=jobs.map(j=>{
+    const si=steps.indexOf(j.status);
+    const stepsHtml=stepLabels.map((lbl,i)=>`
+      <div class="dc-step">
+        <div class="dc-dot ${i<si?'done':i===si?'active':''}"></div>
+        <div class="dc-lbl ${i===si?'active':''}">${lbl}</div>
+      </div>${i<stepLabels.length-1?`<div class="dc-line" style="flex:1;height:2px;background:${i<si?'var(--gb)':'#1a3a0f'};margin-top:6px"></div>`:''}`).join('');
+    return `<div class="delivery-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div class="dc-route">${j.from||'?'} → ${j.to||'?'}</div>
+        <span class="badge ${j.status==='delivered'?'bg':j.status==='open'?'bgr':'ba'}">${j.status}</span>
+      </div>
+      <div class="dc-meta">${j.cargo||''} · Broker: ${j.brokerName||'?'} · Transporter: ${j.transporterName||'Unassigned'}</div>
+      <div class="dc-steps" style="display:flex;align-items:center;">${stepsHtml}</div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        ${j.status==='in_progress'?`<button class="btn btn-og btn-sm" onclick="adminUpdateDelivery('${j.id}','loaded')">Mark loaded</button>`:''}
+        ${j.status==='loaded'?`<button class="btn btn-g btn-sm" onclick="adminUpdateDelivery('${j.id}','delivered')">Mark delivered</button>`:''}
+        ${j.status==='open'?`<button class="btn btn-og btn-sm" onclick="adminUpdateDelivery('${j.id}','in_progress')">Force assign</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.filterDeliveries=function(){
+  const f=document.getElementById('del-filter')?.value||'';
+  renderDeliveries((window._all_jobs||[]).filter(j=>!f||j.status===f));
+};
+window.adminUpdateDelivery=async function(id,status){
+  await updateDoc(doc(db,'jobs',id),{status,updatedAt:serverTimestamp()});
+  toast(`✅ Delivery updated to: ${status}`);loadDeliveries();
+};
+
+// ── AQA ──
+async function loadAQA(){
+  const el=document.getElementById('screen-aqa');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Quality Assurance (AQA)</div><div class="page-sub">AgriConnect field inspection requests</div></div><button class="btn btn-g btn-sm" onclick="openNewAQA()">+ New inspection</button></div>
+  <div class="three-col" style="margin-bottom:16px;">
+    <div class="stat-box"><div class="stat-val" id="aqa-pending">—</div><div class="stat-lbl">Pending inspections</div></div>
+    <div class="stat-box"><div class="stat-val" id="aqa-done">—</div><div class="stat-lbl">Completed</div></div>
+    <div class="stat-box"><div class="stat-val" id="aqa-rev">—</div><div class="stat-lbl">AQA revenue (RWF)</div><div class="stat-trend trend-up">1% inspection fee</div></div>
+  </div>
+  <div id="aqa-list"><div class="loading-inline">Loading...</div></div>`;
+  try{
+    const snap=await getDocs(collection(db,'aqa_requests'));
+    const aqa=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const pending=aqa.filter(a=>a.status==='pending');
+    const done=aqa.filter(a=>a.status==='completed');
+    const rev=done.reduce((s,a)=>s+(a.fee||0),0);
+    const el=id=>document.getElementById(id);
+    if(el('aqa-pending'))el('aqa-pending').textContent=pending.length;
+    if(el('aqa-done'))el('aqa-done').textContent=done.length;
+    if(el('aqa-rev'))el('aqa-rev').textContent=Math.round(rev/1000)+'k';
+    const cont=document.getElementById('aqa-list');
+    cont.innerHTML=aqa.length===0?`<div class="empty">No AQA requests yet. They appear automatically when brokers request inspection.</div>`:
+      aqa.map(a=>`<div class="aqa-card">
+        <div class="aqa-head">
+          <div><div class="aqa-title">${a.crop||'Produce'} — ${a.farmerName||'Farmer'}</div><div class="aqa-sub">${a.location||'?'} · ${a.qty||0} kg · Fee: ${(a.fee||0).toLocaleString()} RWF</div></div>
+          <span class="badge ${a.status==='completed'?'bg':a.status==='pending'?'ba':a.status==='disputed'?'bp':'bgr'}">${a.status}</span>
+        </div>
+        ${a.notes?`<div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:8px">${a.notes}</div>`:''}
+        ${a.photos?.length?`<div class="qa-photos">${a.photos.map(p=>`<img class="qa-photo" src="${p}" alt="inspection photo">`).join('')}</div>`:''}
+        <div class="aqa-actions">
+          ${a.status==='pending'?`<button class="btn btn-og btn-sm" onclick="openInspectionReport('${a.id}')">Submit report</button>`:''}
+          ${a.status==='pending'?`<button class="btn btn-r btn-sm" onclick="updateAQA('${a.id}','rejected')">Reject</button>`:''}
+        </div>
+      </div>`).join('');
+  }catch(e){document.getElementById('aqa-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+}
+
+window.openNewAQA=function(){
+  document.getElementById('modal-content').innerHTML=`
+    <div class="modal-title">New AQA inspection</div>
+    <div class="modal-sub">Create a manual inspection request for a listing</div>
+    <div class="fg"><label class="fl">Listing ID or description</label><input class="fi2" id="aqa-desc" placeholder="e.g. Maize - Nyagatare - Jean Farmer"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Crop</label><input class="fi2" id="aqa-crop" placeholder="Maize"></div>
+      <div class="fg"><label class="fl">Quantity (kg)</label><input class="fi2" id="aqa-qty" type="number" placeholder="1000"></div>
+    </div>
+    <div class="fg"><label class="fl">Farmer name</label><input class="fi2" id="aqa-farmer" placeholder="Farmer name"></div>
+    <div class="fg"><label class="fl">Location</label><input class="fi2" id="aqa-loc" placeholder="e.g. Nyagatare"></div>
+    <div class="fg"><label class="fl">Deal value (RWF) — fee is 1%</label><input class="fi2" id="aqa-val" type="number" placeholder="e.g. 290000" oninput="document.getElementById('aqa-fee-preview').textContent='Fee: '+(Math.round(this.value*0.01)).toLocaleString()+' RWF'"></div>
+    <div id="aqa-fee-preview" style="font-size:13px;color:var(--gb);margin-bottom:12px;">Fee: 0 RWF</div>
+    <div class="modal-actions">
+      <button class="btn btn-og" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-g" onclick="createAQA()">Create inspection</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+};
+
+window.createAQA=async function(){
+  const desc=document.getElementById('aqa-desc').value.trim();
+  const crop=document.getElementById('aqa-crop').value.trim();
+  const qty=parseFloat(document.getElementById('aqa-qty').value)||0;
+  const farmer=document.getElementById('aqa-farmer').value.trim();
+  const loc=document.getElementById('aqa-loc').value.trim();
+  const val=parseFloat(document.getElementById('aqa-val').value)||0;
+  const fee=Math.round(val*0.01);
+  if(!crop||!farmer){toast('Please fill in crop and farmer name.');return;}
+  await addDoc(collection(db,'aqa_requests'),{desc,crop,qty,farmerName:farmer,location:loc,dealValue:val,fee,status:'pending',photos:[],createdAt:serverTimestamp()});
+  closeModal();toast('✅ AQA inspection created!');loadAQA();
+};
+
+window.openInspectionReport=function(id){
+  document.getElementById('modal-content').innerHTML=`
+    <div class="modal-title">Submit inspection report</div>
+    <div class="modal-sub">Upload your field findings for this produce</div>
+    <div class="fg"><label class="fl">Inspector notes</label><textarea class="fi2" id="insp-notes" rows="3" placeholder="Describe quality, condition, any issues found..."></textarea></div>
+    <div class="fg"><label class="fl">Quality grade</label>
+      <select class="fi2" id="insp-grade">
+        <option value="A">Grade A — Excellent quality, approve payment</option>
+        <option value="B">Grade B — Good quality, minor issues</option>
+        <option value="C">Grade C — Average quality, renegotiate price</option>
+        <option value="D">Grade D — Poor quality, recommend rejection</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Upload photos (inspection evidence)</label>
+      <input type="file" id="insp-photos" accept="image/*" multiple style="color:rgba(255,255,255,0.6);font-size:13px;background:#162a0f;border:1px solid #1a3a0f;border-radius:8px;padding:8px;width:100%">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-og" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-g" onclick="submitInspection('${id}')">Submit report</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+};
+
+window.submitInspection=async function(id){
+  const notes=document.getElementById('insp-notes').value.trim();
+  const grade=document.getElementById('insp-grade').value;
+  const files=document.getElementById('insp-photos').files;
+  if(!notes){toast('Please add inspection notes.');return;}
+  const btn=document.querySelector('#modal-content .btn-g');btn.disabled=true;btn.textContent='Uploading...';
+  try{
+    const photoUrls=[];
+    for(const file of files){
+      const r=ref(storage,`aqa/${id}/${file.name}`);
+      await uploadBytes(r,file);
+      const url=await getDownloadURL(r);
+      photoUrls.push(url);
+    }
+    await updateDoc(doc(db,'aqa_requests',id),{notes,grade,photos:photoUrls,status:'completed',completedAt:serverTimestamp()});
+    closeModal();toast('✅ Inspection report submitted!');loadAQA();
+  }catch(e){toast('❌ Error: '+e.message);btn.disabled=false;btn.textContent='Submit report';}
+};
+
+window.updateAQA=async function(id,status){
+  await updateDoc(doc(db,'aqa_requests',id),{status,updatedAt:serverTimestamp()});
+  toast('AQA updated: '+status);loadAQA();
+};
+
+// ── CHAT MODERATION ──
+async function loadChat(){
+  const el=document.getElementById('screen-chat');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Chat Moderation</div><div class="page-sub">All conversations — phone numbers blocked automatically</div></div></div>
+  <div class="two-col" style="margin-bottom:14px;">
+    <div class="stat-box"><div class="stat-val" id="chat-total">—</div><div class="stat-lbl">Total conversations</div></div>
+    <div class="stat-box"><div class="stat-val" id="chat-flagged" style="color:var(--rd)">—</div><div class="stat-lbl">Flagged messages</div></div>
+  </div>
+  <div id="chat-list"><div class="loading-inline">Loading...</div></div>`;
+  try{
+    const snap=await getDocs(collection(db,'chats'));
+    const chats=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const flagged=chats.filter(c=>c.flaggedCount>0);
+    const el=id=>document.getElementById(id);
+    if(el('chat-total'))el('chat-total').textContent=chats.length;
+    if(el('chat-flagged'))el('chat-flagged').textContent=flagged.length;
+    const cont=document.getElementById('chat-list');
+    cont.innerHTML=chats.length===0?`<div class="empty">No chats yet. They appear when users message each other on a deal.</div>`:
+      `<div class="chat-list">${chats.map(c=>`<div class="chat-item ${c.flaggedCount>0?'flagged':''}" onclick="viewChat('${c.id}')">
+        <div class="ci-header">
+          <div class="ci-parties" style="font-family:monospace">${c.farmerName||'Farmer #????'} ↔ ${c.brokerName||'Broker #????'}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:2px;">Crop: ${c.cropName||'?'}</div>
+          <div style="display:flex;gap:6px;align-items:center;">${c.flaggedCount>0?`<span class="ci-flag">⚠️ ${c.flaggedCount} blocked</span>`:''}<span class="ci-time">${c.lastAt?.toDate?c.lastAt.toDate().toLocaleDateString():'—'}</span></div>
+        </div>
+        <div class="ci-preview">${c.lastMessage||'No messages yet'}</div>
+      </div>`).join('')}</div>`;
+  }catch(e){document.getElementById('chat-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+}
+
+window.viewChat=async function(chatId){
+  const msgsSnap=await getDocs(collection(db,'chats',chatId,'messages')).catch(()=>({docs:[]}));
+  const msgs=msgsSnap.docs.map(d=>d.data());
+  document.getElementById('modal-content').innerHTML=`
+    <div class="modal-title">Conversation</div>
+    <div class="modal-sub">Read-only view for moderation</div>
+    <div style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      ${msgs.length===0?`<div class="empty">No messages yet.</div>`:msgs.map(m=>`
+        <div style="background:${m.blocked?'rgba(184,50,50,0.15)':'#162a0f'};border:1px solid ${m.blocked?'var(--rd)':'#1a3a0f'};border-radius:8px;padding:10px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="font-size:11px;font-weight:700;color:${m.blocked?'var(--rd)':'var(--gb)'}">${m.senderName||'User'}</span>
+            ${m.blocked?`<span class="badge bp">⚠️ Blocked — phone detected</span>`:''}
+          </div>
+          <div style="font-size:13px;color:rgba(255,255,255,${m.blocked?0.4:0.85})">${m.blocked?'[Message blocked — attempted phone number sharing]':m.text}</div>
+        </div>`).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-og" onclick="closeModal()">Close</button>
+      <button class="btn btn-r btn-sm" onclick="clearChat('${chatId}')">Clear conversation</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+};
+
+window.clearChat=async function(chatId){
+  if(!confirm('Clear this conversation?'))return;
+  await updateDoc(doc(db,'chats',chatId),{cleared:true,clearedAt:serverTimestamp()});
+  closeModal();toast('Conversation cleared.');loadChat();
+};
+
+// ── PRICES ──
+function renderPrices(){
+  const el=document.getElementById('screen-prices');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Prices</div><div class="page-sub">Set prices per region / country</div></div><button class="btn btn-g btn-sm" onclick="saveAllPrices()">Save all prices</button></div>
+  <div class="price-region-tabs">${REGIONS.map(r=>`<button class="prtab ${S.priceRegion===r?'active':''}" onclick="setPriceRegion('${r}')">${r}</button>`).join('')}</div>
+  <div class="card">
+    <div class="ct">Prices for: ${S.priceRegion}</div>
+    <div id="price-rows">${CROPS.map((c,i)=>`<div class="price-row">
+      <div class="pr-icon">${c.icon?`<img src="${c.icon}" alt="${c.name}">`:(c.emoji||'🌾')}</div>
+      <div class="pr-name">${c.name}</div>
+      <input class="pr-inp" id="price-${i}" type="number" value="${(c.prices&&c.prices[S.priceRegion])||c.price||0}">
+      <span class="pr-change" style="color:${(c.change||0)>0?'var(--gb)':'var(--rd)'}">${(c.change||0)>0?'+':''}${c.change||0}%</span>
+      <span style="font-size:11px;color:rgba(255,255,255,0.3)">RWF/kg</span>
+    </div>`).join('')}</div>
+  </div>`;
+}
+
+window.setPriceRegion=function(r){S.priceRegion=r;renderPrices();};
+
+window.saveAllPrices=async function(){
+  try{
+    const updates=CROPS.map(async(c,i)=>{
+      const inp=document.getElementById(`price-${i}`);if(!inp)return;
+      const newPrice=parseFloat(inp.value);if(isNaN(newPrice)||newPrice<=0)return;
+      if(!c.prices)c.prices={};
+      const oldPrice=c.prices[S.priceRegion]||c.price||newPrice;
+      c.prices[S.priceRegion]=newPrice;
+      c.change=Math.round(((newPrice-oldPrice)/oldPrice)*100);
+      if(c.id){await updateDoc(doc(db,'crops',c.id),{prices:c.prices,change:c.change,price:c.prices['Rwanda (All)']||newPrice});}
+      else{const r=await addDoc(collection(db,'crops'),{...c});c.id=r.id;}
+    });
+    await Promise.all(updates);
+    toast('✅ Prices saved for '+S.priceRegion+'!');
+  }catch(e){toast('❌ Error: '+e.message);}
+};
+
+// ── CROPS & ICONS ──
+function renderCrops(){
+  const el=document.getElementById('screen-crops');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Crops & Icons</div><div class="page-sub">Admin-controlled crop catalogue with photo icons</div></div></div>
+  <div class="two-col">
+    <div class="card">
+      <div class="ct">Current crops</div>
+      <div id="crop-admin-list">${CROPS.map((c,i)=>`<div class="price-row">
+        <div class="pr-icon">${c.icon?`<img src="${c.icon}" alt="${c.name}">`:(c.emoji||'🌾')}</div>
+        <div class="pr-name">${c.name}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4)">${c.prices?.['Rwanda (All)']||c.price||0} RWF/kg</div>
+        <label style="cursor:pointer;margin-left:auto;">
+          <span class="btn btn-og btn-sm">📷 Upload icon</span>
+          <input type="file" accept="image/*" style="display:none" onchange="uploadCropIcon(${i}, this)">
+        </label>
+        <button class="pr-del" onclick="deleteCropAdmin(${i},'${c.id||''}')">🗑️</button>
+      </div>`).join('')}</div>
+    </div>
+    <div class="card">
+      <div class="ct">Add new crop</div>
+      <div class="fg"><label class="fl">Crop name</label><input class="fi2" id="nc-name" placeholder="e.g. Groundnuts"></div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Emoji (fallback)</label><input class="fi2" id="nc-emoji" placeholder="🥜" style="font-size:20px"></div>
+        <div class="fg"><label class="fl">Type slug</label><input class="fi2" id="nc-type" placeholder="groundnuts"></div>
+      </div>
+      <div class="fg"><label class="fl">Base price (RWF/kg)</label><input class="fi2" id="nc-price" type="number" placeholder="400"></div>
+      <div class="fg"><label class="fl">Crop icon photo</label>
+        <div class="upload-zone" onclick="document.getElementById('nc-photo').click()">
+          <div id="nc-preview-wrap">📷 Click to upload crop photo</div>
+          <input type="file" id="nc-photo" accept="image/*" style="display:none" onchange="previewNewCrop(this)">
+        </div>
+      </div>
+      <button class="btn btn-g btn-full" onclick="addCropAdmin()">Add crop</button>
+    </div>
+  </div>`;
+}
+
+window.previewNewCrop=function(input){
+  const file=input.files[0];if(!file)return;
+  const url=URL.createObjectURL(file);
+  document.getElementById('nc-preview-wrap').innerHTML=`<img src="${url}" class="upload-preview">`;
+};
+
+window.uploadCropIcon=async function(idx,input){
+  const file=input.files[0];if(!file)return;
+  toast('Uploading icon...');
+  try{
+    const r=ref(storage,`crop-icons/${CROPS[idx].type||idx}_${Date.now()}`);
+    await uploadBytes(r,file);
+    const url=await getDownloadURL(r);
+    CROPS[idx].icon=url;
+    if(CROPS[idx].id){await updateDoc(doc(db,'crops',CROPS[idx].id),{icon:url});}
+    toast('✅ Icon updated!');renderCrops();
+  }catch(e){toast('❌ Upload failed: '+e.message);}
+};
+
+window.addCropAdmin=async function(){
+  const name=document.getElementById('nc-name').value.trim();
+  const emoji=document.getElementById('nc-emoji').value.trim()||'🌾';
+  const type=document.getElementById('nc-type').value.trim()||name.toLowerCase().replace(/\s+/g,'-');
+  const price=parseFloat(document.getElementById('nc-price').value)||0;
+  const file=document.getElementById('nc-photo').files[0];
+  if(!name||!price){toast('Please enter crop name and price.');return;}
+  toast('Saving...');
+  try{
+    let iconUrl=null;
+    if(file){
+      const r=ref(storage,`crop-icons/${type}_${Date.now()}`);
+      await uploadBytes(r,file);
+      iconUrl=await getDownloadURL(r);
+    }
+    const newCrop={name,emoji,type,icon:iconUrl,price,prices:{'Rwanda (All)':price},change:0};
+    const docRef=await addDoc(collection(db,'crops'),newCrop);
+    CROPS.push({...newCrop,id:docRef.id});
+    toast('✅ Crop added!');renderCrops();
+  }catch(e){toast('❌ Error: '+e.message);}
+};
+
+window.deleteCropAdmin=async function(idx,fid){
+  if(!confirm(`Delete ${CROPS[idx]?.name}?`))return;
+  if(fid){await deleteDoc(doc(db,'crops',fid));}
+  CROPS.splice(idx,1);
+  toast('Crop deleted.');renderCrops();
+};
+
+// ── ALERTS ──
+async function loadAlerts(){
+  const el=document.getElementById('screen-alerts');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Gov Alerts</div><div class="page-sub">Published famine & supply alerts</div></div><button class="btn btn-g btn-sm" onclick="openNewAlert()">+ New alert</button></div>
+  <div id="alerts-list"><div class="loading-inline">Loading...</div></div>`;
+  try{
+    const snap=await getDocs(collection(db,'govt_alerts'));
+    const alerts=snap.docs.map(d=>({id:d.id,...d.data()}));
+    document.getElementById('alerts-list').innerHTML=alerts.length===0?`<div class="empty">No alerts published yet.</div>`:
+      alerts.map(a=>`<div class="aqa-card">
+        <div class="aqa-head">
+          <div><div class="aqa-title">${a.text}</div><div class="aqa-sub">Region: ${a.region||'all'} · ${a.createdAt?.toDate?a.createdAt.toDate().toLocaleDateString():'—'}</div></div>
+          <span class="badge ${a.sev==='red'?'bp':a.sev==='amber'?'ba':'bg'}">${a.sev}</span>
+        </div>
+        <div style="margin-top:8px"><button class="btn btn-r btn-sm" onclick="deleteAlert('${a.id}')">Delete</button></div>
+      </div>`).join('');
+  }catch(e){document.getElementById('alerts-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+}
+
+window.openNewAlert=function(){
+  document.getElementById('modal-content').innerHTML=`
+    <div class="modal-title">Publish alert</div>
+    <div class="modal-sub">Will appear in the government portal and optionally trigger SMS</div>
+    <div class="fg"><label class="fl">Alert message</label><textarea class="fi2" id="al-text" rows="3" placeholder="Describe the situation..."></textarea></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">Severity</label><select class="fi2" id="al-sev"><option value="red">Critical (Red)</option><option value="amber">Warning (Amber)</option><option value="green">Update (Green)</option></select></div>
+      <div class="fg"><label class="fl">Region</label><select class="fi2" id="al-region"><option value="all">All Rwanda</option><option value="eastern">Eastern</option><option value="western">Western</option><option value="northern">Northern</option><option value="southern">Southern</option><option value="kigali">Kigali</option></select></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-og" onclick="closeModal()">Cancel</button><button class="btn btn-r" onclick="publishAlert()">Publish alert</button></div>`;
+  document.getElementById('modal').classList.add('open');
+};
+
+window.publishAlert=async function(){
+  const text=document.getElementById('al-text').value.trim();
+  const sev=document.getElementById('al-sev').value;
+  const region=document.getElementById('al-region').value;
+  if(!text){toast('Please enter alert text.');return;}
+  await addDoc(collection(db,'govt_alerts'),{text,sev,region,createdAt:serverTimestamp()});
+  closeModal();toast('✅ Alert published!');loadAlerts();
+};
+
+window.deleteAlert=async function(id){
+  if(!confirm('Delete this alert?'))return;
+  await deleteDoc(doc(db,'govt_alerts',id));
+  toast('Alert deleted.');loadAlerts();
+};
+
+// ── UTILS ──
+window.closeModal=function(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open');};
+window.toast=function(msg,dur=3500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);};
+window.suspendUser=function(uid){toast('Account suspension coming in v2 (requires Firebase Admin SDK on server side).');closeModal();};
+</script>
+</body>
+</html>
