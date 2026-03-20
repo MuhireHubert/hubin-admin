@@ -243,6 +243,7 @@ tr:hover td{background:#0f2409;}
     <div class="sb-section">Platform</div>
     <button class="sb-item active" onclick="showScreen('overview')" id="sbi-overview"><span class="si">📊</span> Overview</button>
     <button class="sb-item" onclick="showScreen('users')" id="sbi-users"><span class="si">👥</span> Users</button>
+    <button class="sb-item" onclick="showScreen('ratings')" id="sbi-ratings"><span class="si">⭐</span> Ratings</button>
     <button class="sb-item" onclick="showScreen('listings')" id="sbi-listings"><span class="si">🌾</span> Listings</button>
     <button class="sb-item" onclick="showScreen('transactions')" id="sbi-transactions"><span class="si">💰</span> Transactions</button>
     <div class="sb-section">Operations</div>
@@ -263,6 +264,7 @@ tr:hover td{background:#0f2409;}
   <div class="main" id="main-content">
     <div id="screen-overview" class="screen show"></div>
     <div id="screen-users" class="screen"></div>
+    <div id="screen-ratings" class="screen"></div>
     <div id="screen-listings" class="screen"></div>
     <div id="screen-transactions" class="screen"></div>
     <div id="screen-deliveries" class="screen"></div>
@@ -321,7 +323,7 @@ window.showScreen=function(id){
   document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('screen-'+id).classList.add('show');
   const sbi=document.getElementById('sbi-'+id);if(sbi)sbi.classList.add('active');
-  const loaders={overview:loadOverview,users:loadUsers,listings:loadListings,transactions:loadTransactions,deliveries:loadDeliveries,aqa:loadAQA,chat:loadChat,prices:()=>renderPrices(),crops:renderCrops,alerts:loadAlerts};
+  const loaders={overview:loadOverview,users:loadUsers,listings:loadListings,transactions:loadTransactions,deliveries:loadDeliveries,aqa:loadAQA,chat:loadChat,prices:()=>renderPrices(),crops:renderCrops,alerts:loadAlerts,ratings:loadRatings};
   if(loaders[id])loaders[id]();
 };
 
@@ -416,7 +418,7 @@ function renderUsersTable(users){
     <thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>MoMo</th><th>Location</th><th>Province</th><th>Vehicle</th><th>Rating</th><th>Joined</th><th>Actions</th></tr></thead>
     <tbody>${users.map(u=>`<tr>
       <td><strong>${u.fname||''} ${u.lname||''}</strong></td>
-      <td><span class="badge ${u.role==='farmer'?'bg':u.role==='broker'?'bb':'ba'}">${u.role||'?'}</span></td>
+      <td><span class="badge ${u.role==='farmer'?'bg':u.role==='broker'?'bb':'ba'}">${u.role||'?'}</span>${u.suspended?'<span class="badge" style="background:#333;color:#f66;margin-left:4px;">⛔ Suspended</span>':''}</td>
       <td style="font-family:monospace">${u.phone||'—'}</td>
       <td style="font-family:monospace">${u.momo||'—'}</td>
       <td>${u.loc||'—'}</td>
@@ -445,7 +447,12 @@ window.viewUser=function(uid){
     <div class="modal-title">${u.fname} ${u.lname||''}</div>
     <div class="modal-sub"><span class="badge ${u.role==='farmer'?'bg':u.role==='broker'?'bb':'ba'}">${u.role}</span></div>
     ${[['📱 Phone',u.phone],['💰 MoMo',u.momo],['📍 Location',u.loc],['🗺 Province',u.province],['🚛 Vehicle',u.vehicle||'—'],['📦 Capacity',u.capacity?u.capacity+'t':'—'],['⭐ Rating',u.rating?.toFixed(1)+'★'],['📅 Joined',u.joined?new Date(u.joined).toLocaleDateString():'—'],['✉️ Email',u.email]].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a3a0f;font-size:13px;"><span style="color:rgba(255,255,255,0.4)">${k}</span><span style="color:var(--w);font-weight:600">${v||'—'}</span></div>`).join('')}
-    <div class="modal-actions"><button class="btn btn-og" onclick="closeModal()">Close</button><button class="btn btn-r btn-sm" onclick="suspendUser('${uid}')">Suspend account</button></div>`;
+    <div class="modal-actions">
+      <button class="btn btn-og" onclick="closeModal()">Close</button>
+      <button class="btn btn-r btn-sm" id="suspend-btn-${uid}" onclick="toggleSuspend('${uid}',${u.suspended?'true':'false'})">
+        ${u.suspended?'✅ Reinstate account':'⛔ Suspend account'}
+      </button>
+    </div>`;
   document.getElementById('modal').classList.add('open');
 };
 
@@ -1130,9 +1137,61 @@ window.deleteAlert=async function(id){
 };
 
 // ── UTILS ──
+// ── RATINGS ──
+async function loadRatings(){
+  const el=document.getElementById('screen-ratings');
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Ratings & Reviews</div><div class="page-sub">All user ratings across the platform</div></div></div>
+  <div class="three-col" style="margin-bottom:16px;" id="rat-stats"><div class="loading-inline">Loading...</div></div>
+  <div class="card"><div class="tbl-wrap"><div id="rat-table"><div class="loading-inline">Loading...</div></div></div></div>`;
+  try{
+    const snap=await getDocs(collection(db,'ratings'));
+    const ratings=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const avg=ratings.length?Math.round(ratings.reduce((s,r)=>s+r.stars,0)/ratings.length*10)/10:0;
+    const withReview=ratings.filter(r=>r.review&&r.review.length>0);
+    document.getElementById('rat-stats').innerHTML=`
+      <div class="stat-box"><div class="stat-val">${ratings.length}</div><div class="stat-lbl">Total ratings</div></div>
+      <div class="stat-box"><div class="stat-val">${avg}★</div><div class="stat-lbl">Platform avg rating</div></div>
+      <div class="stat-box"><div class="stat-val">${withReview.length}</div><div class="stat-lbl">Written reviews</div></div>`;
+    if(!ratings.length){document.getElementById('rat-table').innerHTML=`<div class="empty">No ratings yet.</div>`;return;}
+    document.getElementById('rat-table').innerHTML=`<table>
+      <thead><tr><th>From (role)</th><th>To (role)</th><th>Stars</th><th>Review</th><th>Context</th><th>Date</th></tr></thead>
+      <tbody>${ratings.map(r=>`<tr>
+        <td><span class="badge ${r.fromRole==='farmer'?'bg':r.fromRole==='broker'?'bb':'ba'}">${r.fromRole||'?'}</span></td>
+        <td><span class="badge ${r.toRole==='farmer'?'bg':r.toRole==='broker'?'bb':'ba'}">${r.toRole||'?'}</span></td>
+        <td style="color:#f5a623;font-weight:700;">${'★'.repeat(r.stars||0)}${'☆'.repeat(5-(r.stars||0))}</td>
+        <td style="max-width:200px;font-size:12px;">${r.review||'<span style="color:#555">No review</span>'}</td>
+        <td style="font-size:11px;color:#666">${r.context||'—'}</td>
+        <td style="font-size:11px;">${r.createdAt?.toDate?r.createdAt.toDate().toLocaleDateString():'—'}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }catch(e){document.getElementById('screen-ratings').innerHTML+=`<div class="empty">Error: ${e.message}</div>`;}
+}
+
 window.closeModal=function(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open');};
 window.toast=function(msg,dur=3500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);};
-window.suspendUser=function(uid){toast('Account suspension coming in v2 (requires Firebase Admin SDK on server side).');closeModal();};
+window.toggleSuspend=async function(uid,currentlySuspended){
+  const action=currentlySuspended?'reinstate':'suspend';
+  const reason=currentlySuspended?'':prompt('Reason for suspension (shown to user):');
+  if(!currentlySuspended&&reason===null)return; // cancelled
+  if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this account?`))return;
+  try{
+    await updateDoc(doc(db,'users',uid),{
+      suspended:!currentlySuspended,
+      suspendedAt:!currentlySuspended?serverTimestamp():null,
+      suspensionReason:reason||null,
+    });
+    // Log admin action
+    await addDoc(collection(db,'admin_messages'),{
+      toUid:uid,fromAdmin:true,msgType:'suspension',
+      text:currentlySuspended
+        ?'✅ Your AgriConnect account has been reinstated. You can now log in again.'
+        :`⛔ Your AgriConnect account has been suspended. Reason: ${reason||'Policy violation'}. Contact admin@hub-in.rw to appeal.`,
+      read:false,createdAt:serverTimestamp(),
+    });
+    closeModal();
+    toast(`✅ Account ${action}d and user notified.`);
+    loadUsers();
+  }catch(e){toast('❌ Error: '+e.message);}
+};
 </script>
 </body>
 </html>
