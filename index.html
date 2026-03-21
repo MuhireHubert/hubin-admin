@@ -4,12 +4,6 @@
   ─────────────────────────────────────
   This file is intended to be deployed as a SEPARATE repository from AgriConnect.
   
-  Recommended deployment:
-  1. Create a new private GitHub repo: muhirehubert/hubin-admin
-  2. Add this file as index.html
-  3. Enable GitHub Pages (or deploy to Vercel/Netlify for password-protected access)
-  4. Add to .gitignore if you want to keep it off the public internet
-  
   Credentials: hubin-admin / AgriAdmin@2026
   Firebase project: agriconnect-8d029 (same backend, admin read/write access)
 -->
@@ -524,12 +518,16 @@ async function loadTransactions(){
       <div class="stat-box"><div class="stat-val">${Math.round(rev/1000)}k</div><div class="stat-lbl">Hub-In revenue (RWF)</div><div class="stat-trend trend-up">3% commissions</div></div>`;
     if(!txs.length){document.getElementById('tx-table').innerHTML=`<div class="empty">No transactions yet.</div>`;return;}
     document.getElementById('tx-table').innerHTML=`<table>
-      <thead><tr><th>Amount (RWF)</th><th>Commission</th><th>Status</th><th>Date</th></tr></thead>
+      <thead><tr><th>Type</th><th>Amount (RWF)</th><th>Commission</th><th>From (Broker/Transporter)</th><th>To (Farmer)</th><th>Crop</th><th>Status</th><th>Date</th></tr></thead>
       <tbody>${txs.map(t=>`<tr>
+        <td><span class="badge ${t.type==='delivery_commission'?'ba':'bg'}">${t.type==='delivery_commission'?'🚛 Delivery':'💰 Trade'}</span></td>
         <td style="font-weight:700">${(t.amount||0).toLocaleString()} RWF</td>
-        <td style="color:var(--gb)">${(t.commission||0).toLocaleString()} RWF</td>
+        <td style="color:var(--gb);font-weight:700">${(t.commission||0).toLocaleString()} RWF</td>
+        <td style="font-size:12px;color:var(--g5)">${t.brokerId?t.brokerId.slice(-6):t.transporterId?t.transporterId.slice(-6):'—'}</td>
+        <td style="font-size:12px;color:var(--g5)">${t.farmerId?t.farmerId.slice(-6):'—'}</td>
+        <td style="font-size:12px">${t.cropName||'—'}</td>
         <td><span class="badge ${t.status==='confirmed'?'bg':'ba'}">${t.status||'?'}</span></td>
-        <td>${t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():'—'}</td>
+        <td style="font-size:11px">${t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():'—'}</td>
       </tr>`).join('')}</tbody></table>`;
   }catch(e){console.error(e);}
 }
@@ -1071,9 +1069,18 @@ window.addCropAdmin=async function(){
   try{
     let iconUrl=null;
     if(file){
-      const r=ref(storage,`crop-icons/${type}_${Date.now()}`);
-      await uploadBytes(r,file);
-      iconUrl=await getDownloadURL(r);
+      try{
+        const uploadP=async()=>{
+          const r=ref(storage,`crop-icons/${type}_${Date.now()}`);
+          await uploadBytes(r,file);
+          return await getDownloadURL(r);
+        };
+        const timeoutP=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Upload timeout - Storage rules may need updating')),15000));
+        iconUrl=await Promise.race([uploadP(),timeoutP]);
+      }catch(uploadErr){
+        toast('⚠️ Icon upload failed: '+uploadErr.message+'. Crop saved without icon.');
+        iconUrl=null;
+      }
     }
     const newCrop={name,emoji:emoji||'🌾',icon:iconUrl||null,type,price,prices:{'Rwanda (All)':price},change:0};
     const docRef=await addDoc(collection(db,'crops'),newCrop);
