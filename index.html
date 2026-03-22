@@ -4,12 +4,6 @@
   ─────────────────────────────────────
   This file is intended to be deployed as a SEPARATE repository from AgriConnect.
   
-  Recommended deployment:
-  1. Create a new private GitHub repo: muhirehubert/hubin-admin
-  2. Add this file as index.html
-  3. Enable GitHub Pages (or deploy to Vercel/Netlify for password-protected access)
-  4. Add to .gitignore if you want to keep it off the public internet
-  
   Credentials: hubin-admin / AgriAdmin@2026
   Firebase project: agriconnect-8d029 (same backend, admin read/write access)
 -->
@@ -595,8 +589,7 @@ window.exportTx=function(){
   const cols=['Type','Crop','Qty(kg)','Price/kg','Amount(RWF)','Commission(RWF)','Broker/Transporter','Farmer','Status','Date'];
   const rows=txs.map(t=>[t.type||'trade',t._crop,t._qty||0,t._price||0,t.amount||0,t.commission||0,t._brokerName!=='—'?t._brokerName:t._transporterName,t._farmerName,t.status||'',t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():''
   ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent([cols.join(','),...rows].join('
-'));
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent([cols.join(','),...rows].join('\n'));
   a.download='agriconnect_transactions.csv';a.click();
   toast('✅ Exported!');
 };
