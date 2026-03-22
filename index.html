@@ -4,6 +4,12 @@
   ─────────────────────────────────────
   This file is intended to be deployed as a SEPARATE repository from AgriConnect.
   
+  Recommended deployment:
+  1. Create a new private GitHub repo: muhirehubert/hubin-admin
+  2. Add this file as index.html
+  3. Enable GitHub Pages (or deploy to Vercel/Netlify for password-protected access)
+  4. Add to .gitignore if you want to keep it off the public internet
+  
   Credentials: hubin-admin / AgriAdmin@2026
   Firebase project: agriconnect-8d029 (same backend, admin read/write access)
 -->
@@ -502,40 +508,97 @@ window.removeListing=async function(id){
 // ── TRANSACTIONS ──
 async function loadTransactions(){
   const el=document.getElementById('screen-transactions');
-  el.innerHTML=`<div class="topbar"><div><div class="page-title">Transactions</div><div class="page-sub">Full deal ledger — every confirmed trade</div></div><button class="btn btn-g btn-sm" onclick="exportTx()">⬇ Export CSV</button></div>
+  el.innerHTML=`<div class="topbar"><div><div class="page-title">Transactions</div><div class="page-sub">Full deal ledger</div></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input class="li" id="tx-search" placeholder="Search crop, name..." style="width:160px;padding:7px 10px;" oninput="filterTxTable(this.value)">
+      <button class="btn btn-g btn-sm" onclick="exportTx()">⬇ CSV</button>
+    </div></div>
   <div class="three-col" style="margin-bottom:16px;" id="tx-stats"><div class="loading-inline">Loading...</div></div>
   <div class="card"><div class="tbl-wrap"><div id="tx-table"><div class="loading-inline">Loading...</div></div></div></div>`;
   try{
-    const [txSnap,oSnap]=await Promise.all([getDocs(collection(db,'transactions')),getDocs(collection(db,'offers'))]);
+    const [txSnap,oSnap,uSnap]=await Promise.all([
+      getDocs(collection(db,'transactions')),
+      getDocs(collection(db,'offers')),
+      getDocs(collection(db,'users')),
+    ]);
     const txs=txSnap.docs.map(d=>({id:d.id,...d.data()}));
-    window._all_txs=txs;
-    const total=txs.reduce((s,t)=>s+(t.amount||0),0);
-    const rev=txs.reduce((s,t)=>s+(t.commission||0),0);
-    const pending=oSnap.docs.filter(d=>d.data().status==='pending').length;
+    const offerMap={};
+    oSnap.docs.forEach(d=>{offerMap[d.id]=d.data();});
+    const userMap={};
+    uSnap.docs.forEach(d=>{const u=d.data();userMap[d.id]={name:(u.fname||'')+' '+(u.lname||''),phone:u.phone||''};});
+    const rich=txs.map(t=>{
+      const o=t.offerId?offerMap[t.offerId]:{};
+      return{...t,
+        _crop:t.cropName||o.cropName||'—',
+        _qty:t.qty||o.qty||0,
+        _price:o.price||0,
+        _brokerName:t.brokerName||(t.brokerId&&userMap[t.brokerId]?userMap[t.brokerId].name:'—'),
+        _farmerName:t.farmerName||(t.farmerId&&userMap[t.farmerId]?userMap[t.farmerId].name:'—'),
+        _transporterName:t.transporterName||(t.transporterId&&userMap[t.transporterId]?userMap[t.transporterId].name:'—'),
+      };
+    });
+    window._all_txs=rich;
+    const total=rich.reduce((s,t)=>s+(t.amount||0),0);
+    const rev=rich.reduce((s,t)=>s+(t.commission||0),0);
     document.getElementById('tx-stats').innerHTML=`
-      <div class="stat-box"><div class="stat-val">${txs.length}</div><div class="stat-lbl">Confirmed deals</div></div>
-      <div class="stat-box"><div class="stat-val">${Math.round(total/1000)}k</div><div class="stat-lbl">Total traded (RWF)</div></div>
-      <div class="stat-box"><div class="stat-val">${Math.round(rev/1000)}k</div><div class="stat-lbl">Hub-In revenue (RWF)</div><div class="stat-trend trend-up">3% commissions</div></div>`;
-    if(!txs.length){document.getElementById('tx-table').innerHTML=`<div class="empty">No transactions yet.</div>`;return;}
-    document.getElementById('tx-table').innerHTML=`<table>
-      <thead><tr><th>Type</th><th>Amount (RWF)</th><th>Commission</th><th>From (Broker/Transporter)</th><th>To (Farmer)</th><th>Crop</th><th>Status</th><th>Date</th></tr></thead>
-      <tbody>${txs.map(t=>`<tr>
-        <td><span class="badge ${t.type==='delivery_commission'?'ba':'bg'}">${t.type==='delivery_commission'?'🚛 Delivery':'💰 Trade'}</span></td>
-        <td style="font-weight:700">${(t.amount||0).toLocaleString()} RWF</td>
-        <td style="color:var(--gb);font-weight:700">${(t.commission||0).toLocaleString()} RWF</td>
-        <td style="font-size:12px;color:var(--g5)">${t.brokerId?t.brokerId.slice(-6):t.transporterId?t.transporterId.slice(-6):'—'}</td>
-        <td style="font-size:12px;color:var(--g5)">${t.farmerId?t.farmerId.slice(-6):'—'}</td>
-        <td style="font-size:12px">${t.cropName||'—'}</td>
-        <td><span class="badge ${t.status==='confirmed'?'bg':'ba'}">${t.status||'?'}</span></td>
-        <td style="font-size:11px">${t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():'—'}</td>
-      </tr>`).join('')}</tbody></table>`;
-  }catch(e){console.error(e);}
+      <div class="stat-box"><div class="stat-val">${rich.length}</div><div class="stat-lbl">Total transactions</div></div>
+      <div class="stat-box"><div class="stat-val">${Math.round(total/1000).toLocaleString()}k RWF</div><div class="stat-lbl">Total traded</div></div>
+      <div class="stat-box"><div class="stat-val">${Math.round(rev/1000).toLocaleString()}k RWF</div><div class="stat-lbl">Hub-In revenue</div><div class="stat-trend trend-up">commissions</div></div>`;
+    renderTxTable(rich);
+  }catch(e){console.error('tx:',e);document.getElementById('tx-table').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
 }
+
+function renderTxTable(txs){
+  if(!txs.length){document.getElementById('tx-table').innerHTML=`<div class="empty">No transactions yet.</div>`;return;}
+  document.getElementById('tx-table').innerHTML=`<table>
+    <thead><tr><th>Type</th><th>Crop</th><th>Qty</th><th>Price/kg</th><th>Amount (RWF)</th><th>Commission</th><th>Broker / Transporter</th><th>Farmer</th><th>Status</th><th>Date</th></tr></thead>
+    <tbody>${txs.map(t=>`<tr style="cursor:pointer;" onclick="showTxDetail('${t.id}')">
+      <td><span class="badge ${t.type==='delivery_commission'?'ba':t.type==='aqa_fee'?'bb':'bg'}">${t.type==='delivery_commission'?'🚛':'💰'} ${t.type==='delivery_commission'?'Delivery':'Trade'}</span></td>
+      <td style="font-weight:700;color:var(--gd)">${t._crop}</td>
+      <td style="font-size:12px">${t._qty?(t._qty/1000).toFixed(1)+'t':'—'}</td>
+      <td style="font-size:12px">${t._price?t._price.toLocaleString()+' RWF':'—'}</td>
+      <td style="font-weight:700;color:var(--gb)">${(t.amount||0).toLocaleString()} RWF</td>
+      <td style="color:var(--gm);font-weight:600">${(t.commission||0).toLocaleString()} RWF</td>
+      <td style="font-size:12px">${t._brokerName!=='—'?t._brokerName:t._transporterName}</td>
+      <td style="font-size:12px">${t._farmerName}</td>
+      <td><span class="badge ${t.status==='confirmed'?'bg':'ba'}">${t.status||'pending'}</span></td>
+      <td style="font-size:11px">${t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():'—'}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+window.filterTxTable=function(q){
+  const ql=(q||'').toLowerCase();
+  const txs=window._all_txs||[];
+  renderTxTable(ql?txs.filter(t=>(t._crop||'').toLowerCase().includes(ql)||(t._brokerName||'').toLowerCase().includes(ql)||(t._farmerName||'').toLowerCase().includes(ql)||(t._transporterName||'').toLowerCase().includes(ql)):txs);
+};
+
+window.showTxDetail=function(txId){
+  const t=(window._all_txs||[]).find(x=>x.id===txId);if(!t)return;
+  const rows=[
+    ['Type',t.type||'trade'],['Crop',t._crop],['Quantity',(t._qty||0).toLocaleString()+' kg'],
+    ['Price per kg',(t._price||0).toLocaleString()+' RWF'],['Total',(t.amount||0).toLocaleString()+' RWF'],
+    ['Commission',(t.commission||0).toLocaleString()+' RWF'],
+    ['Broker/Transporter',t._brokerName!=='—'?t._brokerName:t._transporterName],
+    ['Farmer',t._farmerName],['Route',t.from&&t.to?t.from+' → '+t.to:'—'],
+    ['Status',t.status||'—'],['Offer ID',t.offerId||'—'],
+    ['Date',t.createdAt?.toDate?t.createdAt.toDate().toLocaleString():'—'],
+  ];
+  document.getElementById('modal-content').innerHTML=`
+    <div class="mt2">Transaction Detail</div>
+    <table style="width:100%;font-size:13px;margin-bottom:16px;">${rows.map(([k,v])=>`<tr><td style="color:var(--g5);padding:5px 0;width:40%;font-size:12px;">${k}</td><td style="font-weight:600;padding:5px 0">${v}</td></tr>`).join('')}</table>
+    <button class="btn btn-og btn-full" onclick="closeModal()">Close</button>`;
+  document.getElementById('modal').style.display='flex';
+};
+
 window.exportTx=function(){
   const txs=window._all_txs||[];
-  const csv=['Amount,Commission,Status,Date',...txs.map(t=>`${t.amount||0},${t.commission||0},${t.status||''},${t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():''}`)].join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='agriconnect_transactions.csv';a.click();
-  toast('✅ Transactions exported!');
+  const cols=['Type','Crop','Qty(kg)','Price/kg','Amount(RWF)','Commission(RWF)','Broker/Transporter','Farmer','Status','Date'];
+  const rows=txs.map(t=>[t.type||'trade',t._crop,t._qty||0,t._price||0,t.amount||0,t.commission||0,t._brokerName!=='—'?t._brokerName:t._transporterName,t._farmerName,t.status||'',t.createdAt?.toDate?t.createdAt.toDate().toLocaleDateString():''
+  ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent([cols.join(','),...rows].join('
+'));
+  a.download='agriconnect_transactions.csv';a.click();
+  toast('✅ Exported!');
 };
 
 // ── DELIVERIES ──
